@@ -1,0 +1,339 @@
+@page "/otp-verification"
+@page "/verify-email"
+@page "/verify-reset-code"
+@layout NoAuthLayout
+@implements IDisposable
+@inject JournalAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>OTP Verification</PageTitle>
+
+@if (isLoading)
+{
+    <div class="auth-scene">
+        <div class="auth-loading">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <p>Preparing verification...</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="auth-scene otp-scene">
+        <div class="otp-card">
+            <div class="otp-illustration">
+                <div class="otp-phone-shell">
+                    <div class="otp-phone-speaker"></div>
+                    <div class="otp-phone-home"></div>
+                </div>
+                <div class="otp-envelope">
+                    <span></span>
+                </div>
+            </div>
+
+            <div class="otp-content">
+                <h1>@PageTitleText</h1>
+
+                <button type="button" class="otp-email-back" @onclick="HandleBack">
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowBack" />
+                    <span>@email</span>
+                </button>
+
+                <div class="otp-slots" role="group" aria-label="One-time password input">
+                    <input class="otp-slot"
+                           value="@otpDigits[0]"
+                           maxlength="1"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
+                           @oninput="@(async e => await HandleDigitInput(0, e))"
+                           @onkeydown="@(async e => await HandleDigitKeyDown(0, e))"
+                           @ref="otpInput0" />
+                    <input class="otp-slot"
+                           value="@otpDigits[1]"
+                           maxlength="1"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
+                           @oninput="@(async e => await HandleDigitInput(1, e))"
+                           @onkeydown="@(async e => await HandleDigitKeyDown(1, e))"
+                           @ref="otpInput1" />
+                    <input class="otp-slot"
+                           value="@otpDigits[2]"
+                           maxlength="1"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
+                           @oninput="@(async e => await HandleDigitInput(2, e))"
+                           @onkeydown="@(async e => await HandleDigitKeyDown(2, e))"
+                           @ref="otpInput2" />
+                    <input class="otp-slot"
+                           value="@otpDigits[3]"
+                           maxlength="1"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
+                           @oninput="@(async e => await HandleDigitInput(3, e))"
+                           @onkeydown="@(async e => await HandleDigitKeyDown(3, e))"
+                           @ref="otpInput3" />
+                    <input class="otp-slot"
+                           value="@otpDigits[4]"
+                           maxlength="1"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
+                           @oninput="@(async e => await HandleDigitInput(4, e))"
+                           @onkeydown="@(async e => await HandleDigitKeyDown(4, e))"
+                           @ref="otpInput4" />
+                    <input class="otp-slot"
+                           value="@otpDigits[5]"
+                           maxlength="1"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
+                           @oninput="@(async e => await HandleDigitInput(5, e))"
+                           @onkeydown="@(async e => await HandleDigitKeyDown(5, e))"
+                           @ref="otpInput5" />
+                </div>
+
+                <div class="otp-countdown-wrap">
+                    <span class="otp-countdown-label">Code expires in</span>
+                    <strong class="otp-countdown">@countdownSeconds s</strong>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <MudAlert Severity="@messageSeverity" Variant="Variant.Outlined" Dense="true" Class="otp-alert">
+                        @message
+                    </MudAlert>
+                }
+
+                <div class="otp-helper">
+                    <span>Doesn't receive the OTP?</span>
+                    <button type="button"
+                            class="otp-link-button"
+                            disabled="@(!canResend)"
+                            @onclick="HandleResendAsync">
+                        Resend OTP
+                    </button>
+                </div>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="otp-verify-button"
+                           OnClick="HandleVerifyAsync">
+                    Verify
+                </MudButton>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Email { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Flow { get; set; }
+
+    private readonly string[] otpDigits = new string[6];
+    private ElementReference otpInput0;
+    private ElementReference otpInput1;
+    private ElementReference otpInput2;
+    private ElementReference otpInput3;
+    private ElementReference otpInput4;
+    private ElementReference otpInput5;
+    private string email = string.Empty;
+    private string? message;
+    private Severity messageSeverity = Severity.Info;
+    private bool isLoading = true;
+    private bool canResend;
+    private int countdownSeconds = 60;
+    private CancellationTokenSource? countdownCts;
+
+    private bool IsPasswordResetFlow =>
+        string.Equals(Flow, "reset", StringComparison.OrdinalIgnoreCase)
+        || NavigationManager.Uri.Contains("/verify-reset-code", StringComparison.OrdinalIgnoreCase);
+
+    private string PageTitleText => IsPasswordResetFlow ? "OTP Verification" : "OTP Verification";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var session = await AuthService.GetSessionAsync();
+        if (!IsPasswordResetFlow && session is not null)
+        {
+            NavigationManager.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        email = Email ?? await AuthService.GetLastEmailAsync() ?? string.Empty;
+        isLoading = false;
+        StartCountdown();
+        StateHasChanged();
+        await FocusOtpInputAsync(0);
+    }
+
+    private async Task HandleVerifyAsync()
+    {
+        var code = GetOtpCode();
+        if (string.IsNullOrWhiteSpace(email) || code.Length != 6)
+        {
+            message = "Please enter the full 6-digit OTP.";
+            messageSeverity = Severity.Warning;
+            return;
+        }
+
+        (bool Success, string Message) result = IsPasswordResetFlow
+            ? await AuthService.VerifyPasswordResetCodeAsync(email.Trim(), code)
+            : await AuthService.VerifyEmailAsync(email.Trim(), code);
+
+        message = result.Message;
+        messageSeverity = result.Success ? Severity.Success : Severity.Error;
+
+        if (!result.Success)
+        {
+            return;
+        }
+
+        if (IsPasswordResetFlow)
+        {
+            NavigationManager.NavigateTo($"/reset-password?email={Uri.EscapeDataString(email.Trim())}", forceLoad: false);
+            return;
+        }
+
+        NavigationManager.NavigateTo($"/login?email={Uri.EscapeDataString(email.Trim())}&verified=1", forceLoad: false);
+    }
+
+    private async Task HandleResendAsync()
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            message = "Please enter your email first.";
+            messageSeverity = Severity.Warning;
+            return;
+        }
+
+        var result = IsPasswordResetFlow
+            ? await AuthService.RequestPasswordResetAsync(email.Trim())
+            : await AuthService.ResendVerificationAsync(email.Trim());
+
+        message = result.Message;
+        messageSeverity = result.Success ? Severity.Success : Severity.Error;
+
+        if (result.Success)
+        {
+            ClearOtp();
+            StartCountdown();
+            await FocusOtpInputAsync(0);
+        }
+    }
+
+    private void HandleBack()
+    {
+        var destination = IsPasswordResetFlow ? "/login" : "/login";
+        NavigationManager.NavigateTo(destination, forceLoad: false);
+    }
+
+    private async Task HandleDigitInput(int index, ChangeEventArgs args)
+    {
+        var value = ExtractDigit(args.Value?.ToString());
+        otpDigits[index] = value;
+
+        if (!string.IsNullOrWhiteSpace(value) && index < otpDigits.Length - 1)
+        {
+            await FocusOtpInputAsync(index + 1);
+        }
+    }
+
+    private async Task HandleDigitKeyDown(int index, KeyboardEventArgs args)
+    {
+        if (args.Key == "Backspace" && string.IsNullOrWhiteSpace(otpDigits[index]) && index > 0)
+        {
+            otpDigits[index - 1] = string.Empty;
+            await FocusOtpInputAsync(index - 1);
+        }
+    }
+
+    private string GetOtpCode() => string.Concat(otpDigits).Trim();
+
+    private static string ExtractDigit(string? rawValue)
+    {
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            return string.Empty;
+        }
+
+        foreach (var character in rawValue)
+        {
+            if (char.IsDigit(character))
+            {
+                return character.ToString();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private void ClearOtp()
+    {
+        for (var index = 0; index < otpDigits.Length; index++)
+        {
+            otpDigits[index] = string.Empty;
+        }
+    }
+
+    private void StartCountdown()
+    {
+        countdownCts?.Cancel();
+        countdownCts?.Dispose();
+
+        countdownSeconds = 60;
+        canResend = false;
+        countdownCts = new CancellationTokenSource();
+        _ = RunCountdownAsync(countdownCts.Token);
+    }
+
+    private async Task RunCountdownAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (countdownSeconds > 0 && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(1000, cancellationToken);
+                countdownSeconds--;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+        }
+
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            canResend = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task FocusOtpInputAsync(int index)
+    {
+        await Task.Yield();
+        await GetOtpInput(index).FocusAsync();
+    }
+
+    private ElementReference GetOtpInput(int index) => index switch
+    {
+        0 => otpInput0,
+        1 => otpInput1,
+        2 => otpInput2,
+        3 => otpInput3,
+        4 => otpInput4,
+        5 => otpInput5,
+        _ => throw new ArgumentOutOfRangeException(nameof(index))
+    };
+
+    public void Dispose()
+    {
+        countdownCts?.Cancel();
+        countdownCts?.Dispose();
+    }
+}

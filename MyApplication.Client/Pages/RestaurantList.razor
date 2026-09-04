@@ -1,0 +1,283 @@
+@page "/restaurants"
+@inject JournalAuthService AuthService
+@inject RestaurantsClient RestaurantsClient
+@inject RestaurantTypesClient RestaurantTypesClient
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Restaurant List</PageTitle>
+
+@if (isLoading)
+{
+    <div class="auth-loading">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <p>Loading restaurants...</p>
+    </div>
+}
+else
+{
+    <div class="restaurant-list-page">
+        <section class="restaurant-list-hero">
+            <div>
+                <span class="dine-home-kicker">Places</span>
+                <h2 class="title-header">Your restaurant directory</h2>
+            </div>
+
+            <div class="restaurant-list-actions">
+                <div class="restaurant-list-filter-anchor">
+                    <MudIconButton Icon="@Icons.Material.Filled.Search"
+                                   Color="Color.Primary"
+                                   Class="restaurant-list-filter-trigger"
+                                   OnClick="ToggleFilterPopup" />
+
+                    @if (showFilterPopup)
+                    {
+                        <div class="restaurant-list-filter-popup">
+
+                            <MudTextField @bind-Value="draftSearchText"
+                                          Variant="Variant.Outlined"
+                                          Placeholder="Search by restaurant name"
+                                          Class="search-form" />
+
+                            <MudSelect T="Guid?"
+                                       @bind-Value="draftRestaurantTypeId"
+                                       Label="Restaurant type"
+                                       Variant="Variant.Outlined"
+                                       Clearable="true"
+                                       Class="search-form mb-20px mt-20px">
+                                <MudSelectItem T="Guid?" Value="@null">All types</MudSelectItem>
+                                @foreach (var type in restaurantTypes.OrderBy(type => type.Name))
+                                {
+                                    <MudSelectItem T="Guid?" Value="@type.Id">@type.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+
+                            <div class="restaurant-list-filter-popup-actions">
+                                <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="ClearSearch">
+                                    Clear
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplySearch">
+                                    Search
+                                </MudButton>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <MudButton @onclick="() => OpenDialogAsync(null)"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Class="w-100px">
+                    New
+                </MudButton>
+            </div>
+        </section>
+
+        <div class="restaurant-list-count">@filteredRestaurants.Count restaurant(s)</div>
+
+        <section class="restaurant-list-grid">
+            @if (filteredRestaurants.Count == 0)
+            {
+                <div class="tag-list-empty restaurant-list-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" />
+                    <h3>No matching restaurants</h3>
+                    <p>Try a different name or restaurant type, or clear the filter.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var restaurant in filteredRestaurants)
+                {
+                    <button type="button" class="restaurant-list-card" @onclick="() => OpenDialogAsync(restaurant.Id)">
+                        <div class="restaurant-list-card-media">
+                            @if (!string.IsNullOrWhiteSpace(restaurant.Image))
+                            {
+                                <img src="@restaurant.Image" alt="@restaurant.Name" />
+                            }
+                            else
+                            {
+                                <div class="restaurant-list-card-media-empty">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Large" />
+                                </div>
+                            }
+                        </div>
+
+                        <div class="restaurant-list-card-body">
+                            <div class="restaurant-list-chip-row">
+                                <span class="restaurant-list-chip">
+                                    <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" />
+                                    @(string.IsNullOrWhiteSpace(restaurant.Country) ? "No country" : restaurant.Country)
+                                </span>
+                                <span class="restaurant-list-chip restaurant-list-chip-soft">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Restaurant" Size="Size.Small" />
+                                    @GetTypeName(restaurant.RestaurantTypeId)
+                                </span>
+                            </div>
+
+                            <h2>@restaurant.Name</h2>
+
+                            @if (!string.IsNullOrWhiteSpace(restaurant.Description))
+                            {
+                                <p class="restaurant-list-description">@restaurant.Description</p>
+                            }
+
+                            <div class="restaurant-list-meta">
+                                <span>
+                                    <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" />
+                                    @GetLocationText(restaurant)
+                                </span>
+
+                                @if (!string.IsNullOrWhiteSpace(restaurant.WebsiteUrl))
+                                {
+                                    <span>
+                                        <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" />
+                                        @FormatWebsiteLabel(restaurant.WebsiteUrl)
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="restaurant-list-card-footer">
+                            <span class="restaurant-list-footer-hint">Tap to edit details</span>
+                            <div class="restaurant-list-footer-actions">
+                                <span class="restaurant-list-action-icon">
+                                    <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                                </span>
+                                <span class="restaurant-list-action-icon restaurant-list-action-icon-soft">
+                                    <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowRight" />
+                                </span>
+                            </div>
+                        </div>
+                    </button>
+                }
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool showFilterPopup;
+    private M.JournalSession? session;
+    private IReadOnlyList<M.RestaurantItem> restaurants = [];
+    private IReadOnlyList<M.RestaurantTypeItem> restaurantTypes = [];
+    private string appliedSearchText = string.Empty;
+    private Guid? appliedRestaurantTypeId;
+    private string draftSearchText = string.Empty;
+    private Guid? draftRestaurantTypeId;
+
+    private IReadOnlyList<M.RestaurantItem> filteredRestaurants =>
+        restaurants
+            .Where(restaurant =>
+                (string.IsNullOrWhiteSpace(appliedSearchText) ||
+                 restaurant.Name.Contains(appliedSearchText.Trim(), StringComparison.OrdinalIgnoreCase)) &&
+                (!appliedRestaurantTypeId.HasValue || restaurant.RestaurantTypeId == appliedRestaurantTypeId.Value))
+            .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        session = await AuthService.GetSessionAsync();
+        if (session is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        await LoadRestaurantsAsync();
+    }
+
+    private async Task LoadRestaurantsAsync()
+    {
+        restaurantTypes = await RestaurantTypesClient.GetRestaurantTypesAsync();
+        restaurants = await RestaurantsClient.GetRestaurantsAsync(session!.Id);
+        isLoading = false;
+    }
+
+    private string GetTypeName(Guid restaurantTypeId) =>
+        restaurantTypes.FirstOrDefault(x => x.Id == restaurantTypeId)?.Name ?? "Unknown";
+
+    private static string GetLocationText(M.RestaurantItem restaurant)
+    {
+        
+        if (!string.IsNullOrWhiteSpace(restaurant.Address) && !string.IsNullOrWhiteSpace(restaurant.City))
+        {
+            var fullAddress = string.Join(", ", new[] { restaurant.Address, restaurant.City }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            return fullAddress;
+        }
+
+        if (!string.IsNullOrWhiteSpace(restaurant.Address))
+        {
+            return restaurant.Address;
+        }
+
+        var location = string.Join(", ", new[] { restaurant.City, restaurant.Country }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        return string.IsNullOrWhiteSpace(location) ? "Location not added yet" : location;
+    }
+
+    private static string FormatWebsiteLabel(string websiteUrl)
+    {
+        if (Uri.TryCreate(websiteUrl, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host))
+        {
+            return uri.Host;
+        }
+
+        return websiteUrl;
+    }
+
+    private async Task OpenDialogAsync(Guid? restaurantId)
+    {
+        var parameters = new DialogParameters<RestaurantEntry>
+        {
+            { x => x.RestaurantId, restaurantId }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            NoHeader = true
+        };
+
+        var dialog = await DialogService.ShowAsync<RestaurantEntry>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await LoadRestaurantsAsync();
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleFilterPopup()
+    {
+        showFilterPopup = !showFilterPopup;
+        if (showFilterPopup)
+        {
+            draftSearchText = appliedSearchText;
+            draftRestaurantTypeId = appliedRestaurantTypeId;
+        }
+    }
+
+    private void CloseFilterPopup()
+    {
+        showFilterPopup = false;
+    }
+
+    private void ApplySearch()
+    {
+        appliedSearchText = draftSearchText;
+        appliedRestaurantTypeId = draftRestaurantTypeId;
+        showFilterPopup = false;
+    }
+
+    private void ClearSearch()
+    {
+        draftSearchText = string.Empty;
+        draftRestaurantTypeId = null;
+        appliedSearchText = string.Empty;
+        appliedRestaurantTypeId = null;
+        showFilterPopup = false;
+    }
+}

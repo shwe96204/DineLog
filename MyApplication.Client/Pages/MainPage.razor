@@ -1,0 +1,356 @@
+@page "/mainPage"
+@implements IAsyncDisposable
+@inject JournalAuthService AuthService
+@inject DiariesClient DiariesClient
+@inject RestaurantDiariesClient RestaurantDiariesClient
+@inject RestaurantsClient RestaurantsClient
+@inject RestaurantTypesClient RestaurantTypesClient
+@inject QuotesClient QuotesClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Dine Log Dashboard</PageTitle>
+
+@if (isLoading)
+{
+    <div class="dine-home-loading">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <p>Loading your dining dashboard...</p>
+    </div>
+}
+else if (!string.IsNullOrWhiteSpace(loadErrorMessage))
+{
+    <div class="diary-empty-card diary-empty-card-inline">
+        <strong>Dashboard unavailable</strong>
+        <p>@loadErrorMessage</p>
+    </div>
+}
+else if (session is not null)
+{
+    <div class="dine-home dine-dashboard">
+        <section class="dine-home-topbar">
+            <div class="dine-home-title-block">
+                <span class="dine-home-kicker">Personal Dashboard</span>
+                <h3>Welcome back, @session.FullName.</h3>
+            </div>
+
+            <div class="dine-home-actions">
+                <div class="dine-home-search dine-dashboard-session">
+                    <MudIcon Icon="@Icons.Material.Outlined.Schedule" />
+                    <span>Last sign in: @session.LoggedInAt.ToString("dd MMM yyyy · h:mm tt")</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="dine-home-grid dine-dashboard-grid">
+            <MudPaper Class="dine-home-card dine-home-feature dine-dashboard-quote" Elevation="0">
+                <span class="dine-card-tag">Journal Quote</span>
+                <h2>@(string.IsNullOrWhiteSpace(journalQuote?.Content) ? "Capture the memory before it fades." : journalQuote!.Content)</h2>
+                <p>@(string.IsNullOrWhiteSpace(journalQuote?.Author) ? "A fresh journaling thought appears here every 3 minutes." : $"— {journalQuote!.Author}")</p>
+            </MudPaper>
+
+            <MudPaper Class="dine-home-card dine-dashboard-summary" Elevation="0">
+                <span class="dine-card-tag">Recent Places</span>
+                <h3>@recentRestaurants.Count</h3>
+                <p>Most recently visited restaurants</p>
+            </MudPaper>
+
+            <MudPaper Class="dine-home-card dine-dashboard-summary" Elevation="0">
+                <span class="dine-card-tag">Diary Moments</span>
+                <h3>@recentDiaryEntries.Count</h3>
+                <p>Latest restaurant diary entries</p>
+            </MudPaper>
+        </section>
+
+        <section class="dine-dashboard-section">
+            <div class="dine-dashboard-section-head">
+                <div>
+                    <span class="dine-home-kicker">Recently Visited</span>
+                </div>
+            </div>
+
+            @if (recentRestaurants.Count == 0)
+            {
+                <div class="diary-empty-card diary-empty-card-inline">
+                    <strong>No recent restaurants yet</strong>
+                    <p>Add restaurant diary entries and your five latest places will appear here.</p>
+                </div>
+            }
+            else
+            {
+                <div class="dine-dashboard-restaurant-grid">
+                    @foreach (var restaurant in recentRestaurants)
+                    {
+                        <div class="dine-dashboard-restaurant-card">
+                            <div class="dine-dashboard-restaurant-media">
+                                @if (!string.IsNullOrWhiteSpace(restaurant.Restaurant.Image))
+                                {
+                                    <img src="@restaurant.Restaurant.Image" alt="@restaurant.Restaurant.Name" />
+                                }
+                                else
+                                {
+                                    <div class="dine-dashboard-restaurant-empty">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Large" />
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="dine-dashboard-restaurant-body">
+                                <div class="dine-dashboard-chip-row">
+                                    <span class="dine-dashboard-chip">
+                                        <MudIcon Icon="@Icons.Material.Outlined.CalendarMonth" Size="Size.Small" />
+                                        @restaurant.VisitedDate.ToString("dd/MM/yyyy")
+                                    </span>
+                                    <span class="dine-dashboard-chip dine-dashboard-chip-soft">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Restaurant" Size="Size.Small" />
+                                        @GetRestaurantTypeName(restaurant.Restaurant.RestaurantTypeId)
+                                    </span>
+                                </div>
+
+                                <h3>@restaurant.Restaurant.Name</h3>
+                                <p>@GetRestaurantLocation(restaurant.Restaurant)</p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="dine-dashboard-section">
+            <div class="dine-dashboard-section-head">
+                <div>
+                    <span class="dine-home-kicker">Restaurant Diary</span>
+                </div>
+            </div>
+
+            @if (recentDiaryEntries.Count == 0)
+            {
+                <div class="diary-empty-card diary-empty-card-inline">
+                    <strong>No diary entries yet</strong>
+                    <p>Your recent restaurant diary reflections will appear here after your first saved entry.</p>
+                </div>
+            }
+            else
+            {
+                <div class="dine-dashboard-diary-list">
+                    @foreach (var entry in recentDiaryEntries)
+                    {
+                        <div class="dine-dashboard-diary-card">
+                            <div class="dine-dashboard-diary-copy">
+                                <div class="dine-dashboard-chip-row">
+                                    <span class="dine-dashboard-chip">
+                                        <MudIcon Icon="@Icons.Material.Outlined.CalendarMonth" Size="Size.Small" />
+                                        @(entry.VisitedDate?.ToString("dd MMM yyyy") ?? "No date")
+                                    </span>
+                                    @if (!string.IsNullOrWhiteSpace(GetDiaryName(entry.DiaryId)))
+                                    {
+                                        <span class="dine-dashboard-chip dine-dashboard-chip-soft">
+                                            <MudIcon Icon="@Icons.Material.Outlined.FolderCopy" Size="Size.Small" />
+                                            @GetDiaryName(entry.DiaryId)
+                                        </span>
+                                    }
+                                </div>
+
+                                <h3>@entry.RestaurantName</h3>
+
+                                <div class="dine-dashboard-diary-meta">
+                                    <span>@($"{entry.OverallRating}/5 overall")</span>
+                                    <span>@($"{entry.TasteScore}/5 taste")</span>
+                                    <span>@($"{GetDiaryImages(entry).Count} photos")</span>
+                                </div>
+                            </div>                           
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private M.JournalSession? session;
+    private bool isLoading = true;
+    private M.JournalQuoteItem? journalQuote;
+    private string? loadErrorMessage;
+    private List<M.DiaryFolderItem> diaries = [];
+    private List<M.RestaurantItem> restaurants = [];
+    private List<M.RestaurantTypeItem> restaurantTypes = [];
+    private List<M.RestaurantDiaryItem> allDiaryEntries = [];
+    private List<RecentRestaurantCard> recentRestaurants = [];
+    private List<M.RestaurantDiaryItem> recentDiaryEntries = [];
+    private CancellationTokenSource? refreshCts;
+    private Task? quoteRefreshTask;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            session = await AuthService.GetSessionAsync();
+            if (session is null)
+            {
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+
+            await LoadDashboardAsync();
+            StartQuoteRefreshLoop();
+        }
+        catch
+        {
+            loadErrorMessage = "We couldn't load your dashboard right now. Please refresh or try again in a moment.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        var diariesTask = DiariesClient.GetDiariesAsync(session.Id);
+        var restaurantsTask = RestaurantsClient.GetRestaurantsAsync(session.Id);
+        var restaurantTypesTask = RestaurantTypesClient.GetRestaurantTypesAsync();
+
+        await Task.WhenAll(diariesTask, restaurantsTask, restaurantTypesTask);
+
+        diaries = diariesTask.Result.ToList();
+        restaurants = restaurantsTask.Result.ToList();
+        restaurantTypes = restaurantTypesTask.Result.ToList();
+        await RefreshQuoteAsync();
+
+        var diaryEntryGroups = new List<M.RestaurantDiaryItem>();
+        foreach (var diary in diaries)
+        {
+            var entries = await RestaurantDiariesClient.GetRestaurantDiariesAsync(session.Id, diary.Id);
+            diaryEntryGroups.AddRange(entries);
+        }
+
+        allDiaryEntries = diaryEntryGroups
+            .OrderByDescending(entry => entry.VisitedDate ?? DateTime.MinValue)
+            .ToList();
+
+        recentDiaryEntries = allDiaryEntries
+            .Take(4)
+            .ToList();
+
+        recentRestaurants = allDiaryEntries
+            .GroupBy(entry => entry.RestaurantId)
+            .Select(group => new
+            {
+                LatestEntry = group.OrderByDescending(entry => entry.VisitedDate ?? DateTime.MinValue).First()
+            })
+            .Select(item => new RecentRestaurantCard
+            {
+                Restaurant = restaurants.FirstOrDefault(restaurant => restaurant.Id == item.LatestEntry.RestaurantId) ?? new M.RestaurantItem
+                {
+                    Id = item.LatestEntry.RestaurantId,
+                    Name = item.LatestEntry.RestaurantName,
+                    City = item.LatestEntry.RestaurantCity,
+                    Country = item.LatestEntry.RestaurantCountry
+                },
+                VisitedDate = item.LatestEntry.VisitedDate ?? DateTime.MinValue
+            })
+            .OrderByDescending(item => item.VisitedDate)
+            .Take(5)
+            .ToList();
+    }
+
+    private void StartQuoteRefreshLoop()
+    {
+        refreshCts = new CancellationTokenSource();
+        quoteRefreshTask = RefreshQuoteLoopAsync(refreshCts.Token);
+    }
+
+    private async Task RefreshQuoteLoopAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(3));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                try
+                {
+                    await RefreshQuoteAsync();
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch
+                {
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task RefreshQuoteAsync()
+    {
+        try
+        {
+            journalQuote = await QuotesClient.GetJournalQuoteAsync() ?? journalQuote;
+        }
+        catch
+        {
+            journalQuote ??= new M.JournalQuoteItem
+            {
+                Content = "A meal remembered well is a story worth writing down.",
+                Author = "Dine Log"
+            };
+        }
+    }
+
+    private string GetRestaurantTypeName(Guid restaurantTypeId) =>
+        restaurantTypes.FirstOrDefault(type => type.Id == restaurantTypeId)?.Name ?? "Restaurant";
+
+    private string GetDiaryName(Guid diaryId) =>
+        diaries.FirstOrDefault(diary => diary.Id == diaryId)?.DiaryName ?? string.Empty;
+
+    private static string GetRestaurantLocation(M.RestaurantItem restaurant)
+    {
+        var location = string.Join(", ", new[] { restaurant.City, restaurant.Country }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        return string.IsNullOrWhiteSpace(location) ? "Location not added yet" : location;
+    }
+
+    private static List<string> GetDiaryImages(M.RestaurantDiaryItem entry)
+    {
+        if (entry.GalleryImages.Count > 0)
+        {
+            return entry.GalleryImages.Where(image => !string.IsNullOrWhiteSpace(image)).ToList();
+        }
+
+        return new[] { entry.Image, entry.DetailImage }
+            .Where(image => !string.IsNullOrWhiteSpace(image))
+            .Distinct()
+            .ToList();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (refreshCts is not null)
+        {
+            await refreshCts.CancelAsync();
+            refreshCts.Dispose();
+        }
+
+        if (quoteRefreshTask is not null)
+        {
+            try
+            {
+                await quoteRefreshTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+    }
+
+    private sealed class RecentRestaurantCard
+    {
+        public M.RestaurantItem Restaurant { get; set; } = new();
+        public DateTime VisitedDate { get; set; }
+    }
+}

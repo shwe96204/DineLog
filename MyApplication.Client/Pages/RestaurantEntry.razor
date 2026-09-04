@@ -1,0 +1,328 @@
+@page "/restaurant-entry"
+@page "/restaurant-entry/{RestaurantId:guid}"
+@using System.IO
+@inject JournalAuthService AuthService
+@inject RestaurantsClient RestaurantsClient
+@inject RestaurantTypesClient RestaurantTypesClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Restaurant Entry</PageTitle>
+
+@if (isLoading)
+{
+    <div class="auth-loading">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <p>Opening restaurant entry...</p>
+    </div>
+}
+else
+{
+    <div class="restaurant-entry-page">
+        <section class="restaurant-entry-shell">
+            <div class="restaurant-entry-header">
+                <div class="restaurant-entry-title">
+                    <span class="dine-card-tag">Restaurant Entry</span>
+                    <h2>@(isEditMode ? "Edit Restaurant" : "Create New Restaurant")</h2>
+                </div>
+
+                <div class="restaurant-entry-actions">
+                    @if (isEditMode)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       Size="Size.Medium"
+                                       OnClick="Delete"
+                                       Title="Delete" />
+                    }
+
+                    <MudIconButton Icon="@Icons.Material.Filled.Save"
+                                   Color="Color.Default"
+                                   Size="Size.Medium"
+                                   OnClick="SaveAsync"
+                                   Title="Save" />
+
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Color="Color.Default"
+                                   Size="Size.Medium"
+                                   OnClick="CloseAsync"
+                                   Title="Close" />
+                </div>
+            </div>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="5">
+                    <div class="restaurant-entry-photo-panel">
+                        <div class="restaurant-entry-photo-header">
+                            <div>
+                                <span class="restaurant-photo-label">Restaurant Photo</span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(draft.Image))
+                            {
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Error"
+                                           StartIcon="@Icons.Material.Filled.DeleteOutline"
+                                           OnClick="RemoveRestaurantImage">
+                                    Remove
+                                </MudButton>
+                            }
+                        </div>
+
+                        <label class="restaurant-entry-upload-surface" for="restaurant-image-upload">
+                            @if (!string.IsNullOrWhiteSpace(draft.Image))
+                            {
+                                <img src="@draft.Image" alt="Restaurant photo preview" class="restaurant-entry-upload-image" />
+                            }
+                            else
+                            {
+                                <div class="restaurant-entry-upload-empty">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Large" />
+                                    <strong>Add restaurant photo</strong>
+                                </div>
+                            }
+                        </label>
+
+                        <InputFile id="restaurant-image-upload"
+                                   class="restaurant-entry-upload-input"
+                                   OnChange="HandleRestaurantImageUploadAsync"
+                                   accept="image/*" />
+                    </div>
+                </MudItem>
+
+                <MudItem xs="12" md="7">
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="draft.Name"
+                                  Label="Restaurant Name"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  Placeholder="e.g. Lemon Basil Kitchen" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                    <MudSelect T="Guid"
+                               @bind-Value="draft.RestaurantTypeId"
+                               Label="Restaurant Type"
+                               Variant="Variant.Outlined"
+                               Required="true"
+                               RequiredError="Restaurant type is required.">
+                        @foreach (var type in restaurantTypes)
+                        {
+                            <MudSelectItem T="Guid" Value="@type.Id">@type.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="draft.Country"
+                                  Label="Country"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="e.g. Myanmar" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="draft.City"
+                                  Label="City"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="e.g. Yangon" />
+                        </MudItem>
+                        <MudItem xs="12">
+                    <MudTextField @bind-Value="draft.Address"
+                                  Label="Address"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="Street, township, postal details" />
+                        </MudItem>
+                        <MudItem xs="12">
+                    <MudTextField @bind-Value="draft.Description"
+                                  Label="Description"
+                                  Variant="Variant.Outlined"
+                                  Lines="4"
+                                  HelperText="Notes about the venue, cuisine, or atmosphere." />
+                        </MudItem>
+                        <MudItem xs="12">
+                    <MudTextField @bind-Value="draft.WebsiteUrl"
+                                  Label="Website URL"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="https://example.com" />
+                        </MudItem>
+                    </MudGrid>
+                </MudItem>
+            </MudGrid>
+
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <MudAlert Severity="@messageSeverity" Variant="Variant.Outlined" Dense="true" Class="restaurant-form-alert">
+                    @message
+                </MudAlert>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? RestaurantId { get; set; }
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool isLoading = true;
+    private bool isEditMode;
+    private string? message;
+    private Severity messageSeverity = Severity.Info;
+    private M.JournalSession? session;
+    private RestaurantDraft draft = new();
+    private IReadOnlyList<M.RestaurantTypeItem> restaurantTypes = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        session = await AuthService.GetSessionAsync();
+        if (session is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        restaurantTypes = await RestaurantTypesClient.GetRestaurantTypesAsync();
+        draft.RestaurantTypeId = restaurantTypes.FirstOrDefault()?.Id ?? Guid.Empty;
+        draft.UserId = session.Id;
+
+        if (RestaurantId is Guid restaurantId)
+        {
+            var existing = await RestaurantsClient.GetRestaurantAsync(restaurantId, session.Id);
+            if (existing is not null)
+            {
+                isEditMode = true;
+                draft = new RestaurantDraft
+                {
+                    Id = existing.Id,
+                    UserId = existing.UserId,
+                    RestaurantTypeId = existing.RestaurantTypeId,
+                    Name = existing.Name,
+                    Country = existing.Country,
+                    City = existing.City,
+                    Address = existing.Address,
+                    Description = existing.Description,
+                    Image = existing.Image,
+                    WebsiteUrl = existing.WebsiteUrl
+                };
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        Gva.IsLoading = true;
+        await Task.Delay(300);
+
+        if (string.IsNullOrWhiteSpace(draft.Name))
+        {
+            message = "Restaurant name is required.";
+            messageSeverity = Severity.Warning;
+            Gva.IsLoading = false;
+            return;
+        }
+
+        if (draft.RestaurantTypeId == Guid.Empty)
+        {
+            message = "Please select a restaurant type.";
+            messageSeverity = Severity.Warning;
+            Gva.IsLoading = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(draft.Country) || string.IsNullOrWhiteSpace(draft.City))
+        {
+            message = "Country and city are required.";
+            messageSeverity = Severity.Warning;
+            Gva.IsLoading = false;
+            return;
+        }
+
+        var savedRestaurant = new M.RestaurantItem
+        {
+            Id = draft.Id == Guid.Empty ? Guid.NewGuid() : draft.Id,
+            UserId = session!.Id,
+            RestaurantTypeId = draft.RestaurantTypeId,
+            Name = draft.Name.Trim(),
+            Country = draft.Country.Trim(),
+            City = draft.City.Trim(),
+            Address = draft.Address?.Trim() ?? string.Empty,
+            Description = draft.Description?.Trim() ?? string.Empty,
+            Image = draft.Image?.Trim() ?? string.Empty,
+            WebsiteUrl = draft.WebsiteUrl?.Trim() ?? string.Empty
+        };
+
+        if (isEditMode)
+        {
+            await RestaurantsClient.UpdateRestaurantAsync(savedRestaurant);
+        }
+        else
+        {
+            await RestaurantsClient.AddRestaurantAsync(savedRestaurant);
+        }
+        ShowSuccessSnackBar("Restaurant saved successfully");
+
+        MudDialog.Close(DialogResult.Ok(savedRestaurant));
+        ComFn.GoToRoute("restaurants");
+        Gva.IsLoading = false;
+    }
+
+    private async Task Delete()
+    {
+        if (draft.Id == Guid.Empty || session is null)
+        {
+            return;
+        }
+
+        Gva.IsLoading = true;
+        await Task.Delay(300);
+
+        await RestaurantsClient.DeleteRestaurantAsync(draft.Id, session.Id);
+        ShowSuccessSnackBar("Restaurant deleted successfully");
+
+        MudDialog.Close(DialogResult.Ok(true));
+        ComFn.GoToRoute("restaurants");
+        Gva.IsLoading = false;
+    }
+
+    private void CloseAsync() => MudDialog.Cancel();
+
+    private async Task HandleRestaurantImageUploadAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(5 * 1024 * 1024);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        draft.Image = $"data:{file.ContentType};base64,{Convert.ToBase64String(memoryStream.ToArray())}";
+        StateHasChanged();
+    }
+
+    private void RemoveRestaurantImage()
+    {
+        draft.Image = string.Empty;
+        StateHasChanged();
+    }
+
+    private void ShowSuccessSnackBar(string snackMessage)
+    {
+        Snackbar.Clear();
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+        Snackbar.Add(snackMessage, Severity.Success);
+    }
+
+    private class RestaurantDraft
+    {
+        public Guid Id { get; set; }
+        public Guid UserId { get; set; }
+        public Guid RestaurantTypeId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Image { get; set; } = string.Empty;
+        public string WebsiteUrl { get; set; } = string.Empty;
+    }
+}

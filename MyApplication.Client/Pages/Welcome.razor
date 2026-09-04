@@ -1,0 +1,190 @@
+@page "/welcome"
+@layout NoAuthLayout
+@inject JournalAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Welcome to DineLog</PageTitle>
+
+<div class="welcome-page">
+    <section class="welcome-hero">
+        @if (showBackButton)
+        {
+            <button type="button" class="welcome-back-button" @onclick="GoBack">
+                <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" />
+                <span>Back</span>
+            </button>
+        }
+
+        <div class="welcome-hero-content">
+            <span class="welcome-kicker">Welcome to DineLog</span>
+            <h1>Your Personalized Restaurant Diary & Guide</h1>
+            <p>
+                DineLog is more than a list of places. It is your personal canvas for culinary memories, reflection promptings, and dining insights. Keep track of signature dishes, capture visual logs, note down ambiance details, and build your own custom culinary guide.
+            </p>
+            <div class="welcome-hero-actions">
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Outlined.Book"
+                           Style="border-radius: 12px; padding: 10px 24px;"
+                           OnClick="GoToJournal">
+                    Go to Journal
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Primary" 
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Outlined.EditNote"
+                           Style="border-radius: 12px; padding: 10px 24px;"
+                           OnClick="CreateDiaryEntry">
+                    Log a Meal
+                </MudButton>
+            </div>
+        </div>
+    </section>
+
+    <section class="welcome-section">
+        <div class="welcome-section-header">
+            <h2>Getting Started in 4 Easy Steps</h2>
+            <p>Learn how to capture and organize your gastronomic journey with DineLog's core features.</p>
+        </div>
+
+        <div class="welcome-steps-grid">
+            <div class="welcome-step-card">
+                <div class="welcome-step-number">1</div>
+                <h3>Add a Place</h3>
+                <p>Start by registering your favorite restaurant, local cafe, or eatery in the **Places** section. Save location details and categories.</p>
+            </div>
+
+            <div class="welcome-step-card">
+                <div class="welcome-step-number">2</div>
+                <h3>Write a Diary Entry</h3>
+                <p>Record your dining experiences: rate the food, specify your dining mood, attach photographs, and write down thoughts or remarks.</p>
+            </div>
+
+            <div class="welcome-step-card">
+                <div class="welcome-step-number">3</div>
+                <h3>Apply Tags</h3>
+                <p>Group your records with custom tags like *"Cozy Date Night"*, *"Best Ramen"*, or *"Quiet Workspace"* for fast, intuitive categorization.</p>
+            </div>
+
+            <div class="welcome-step-card">
+                <div class="welcome-step-number">4</div>
+                <h3>Browse & Share</h3>
+                <p>Filter your journal by tags or search comments to answer the classic question: *"Where should we eat today?"*</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="welcome-section">
+        <div class="welcome-section-header">
+            <h2>Explore System Modules</h2>
+            <p>DineLog is built with interconnected tools designed for the modern culinary explorer.</p>
+        </div>
+
+        <div class="welcome-features-grid">
+            <div class="welcome-feature-card col-large">
+                <div class="welcome-feature-icon-wrapper">
+                    <MudIcon Icon="@Icons.Material.Outlined.Book" />
+                </div>
+                <div class="welcome-feature-content">
+                    <h3>The Personal Journal</h3>
+                    <p>
+                        Your main dashboard contains daily prompts designed to help you reflect on your dining visits. Beyond the menu, think about the conversations you had, the background music, the staff friendliness, or the mood pair.
+                    </p>
+                </div>
+            </div>
+
+            <div class="welcome-feature-card col-medium">
+                <div class="welcome-feature-icon-wrapper">
+                    <MudIcon Icon="@Icons.Material.Outlined.QrCodeScanner" />
+                </div>
+                <div class="welcome-feature-content">
+                    <h3>QR Scan Integration</h3>
+                    <p>
+                        Quickly scan codes on restaurant bills, tables, or cards. Our system translates scanning details into prompt forms to fast-track your diary creation.
+                    </p>
+                </div>
+            </div>
+
+            <div class="welcome-feature-card col-medium">
+                <div class="welcome-feature-icon-wrapper">
+                    <MudIcon Icon="@Icons.Material.Outlined.EditNote" />
+                </div>
+                <div class="welcome-feature-content">
+                    <h3>Visual Diary & Memories</h3>
+                    <p>
+                        Write down ratings (1-5 stars) and associate memory notes. Upload photo snippets of your favorite dishes, menus, or matching decors, and write down details.
+                    </p>
+                </div>
+            </div>
+
+            <div class="welcome-feature-card col-large">
+                <div class="welcome-feature-icon-wrapper">
+                    <MudIcon Icon="@Icons.Material.Outlined.Restaurant" />
+                </div>
+                <div class="welcome-feature-content">
+                    <h3>Eateries Directory</h3>
+                    <p>
+                        A clean, structured registry of all the cities and dining formats you visit. Build your custom travel and culinary guide that survives across your browser sessions securely.
+                    </p>
+                </div>
+            </div>
+
+            <div class="welcome-feature-card col-small">
+                <div class="welcome-feature-icon-wrapper">
+                    <MudIcon Icon="@Icons.Material.Filled.Bookmarks" />
+                </div>
+                <div class="welcome-feature-content">
+                    <h3>Dynamic Taxonomies</h3>
+                    <p>
+                        Add custom tags with colorful badges to filter out places instantly depending on what you're craving.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="welcome-section">
+        <div class="welcome-cta-card">
+            <h2>Ready to start your dining story?</h2>
+            <p>Join thousands of foodies logging their culinary journeys. Write down your next dining reflection today.</p>
+            <div class="welcome-cta-buttons">
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Surface" 
+                           Size="Size.Large"
+                           Style="border-radius: 12px; padding: 10px 28px; font-weight: 600;"
+                           OnClick="GoToJournal">
+                    Start Journaling
+                </MudButton>
+            </div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private M.JournalSession? session;
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private bool showBackButton => !string.IsNullOrWhiteSpace(ReturnUrl);
+
+    protected override async Task OnInitializedAsync()
+    {
+        session = await AuthService.GetSessionAsync();
+    }
+
+    private void GoToJournal()
+    {
+        NavigationManager.NavigateTo(session is null ? "/login" : "/mainPage");
+    }
+
+    private void CreateDiaryEntry()
+    {
+        NavigationManager.NavigateTo(session is null ? "/login" : "/restaurant-diary");
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/login" : ReturnUrl!);
+    }
+}

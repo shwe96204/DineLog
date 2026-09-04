@@ -1,0 +1,135 @@
+@page "/tags"
+@inject JournalAuthService AuthService
+@inject RestaurantTagsClient TagsClient
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Tag List</PageTitle>
+
+@if (isLoading)
+{
+    <div class="auth-loading">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <p>Loading tag expressions...</p>
+    </div>
+}
+else
+{
+    <div class="tag-list-page">
+        <section class="tag-list-hero">
+            <div>
+                <span class="dine-home-kicker">Tag Expressions</span>
+                <h2 class="title-header">Organize the feelings and meanings</h2>
+            </div>
+
+            <div class="tag-list-actions">
+                <MudTextField @bind-Value="searchText"
+                              Placeholder="Search by tag name"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Clearable="true"
+                              Class="tag-list-search search-form" />
+
+                <MudButton @onclick="() => OpenDialogAsync(null)" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="w-100px">
+                    New
+                </MudButton>
+            </div>
+        </section>
+
+        <div class="tag-list-count">@filteredTags.Count tag(s)</div>
+
+        <section class="tag-list-grid">
+            @if (filteredTags.Count == 0)
+            {
+                <div class="tag-list-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" />
+                    <h3>No matching tags</h3>
+                    <p>Try another name or clear the search to see all tags.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var tag in filteredTags)
+                {
+                    <button type="button" class="tag-list-card" @onclick="() => OpenDialogAsync(tag.Id)">
+                        <span class="tag-list-category">@tag.Category</span>
+                        <h2>#@tag.Name</h2>
+                        <p>@tag.Description</p>
+                    </button>
+                }
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private M.JournalSession? session;
+    private IReadOnlyList<M.RestaurantTagItem> tags = [];
+    private string searchText = string.Empty;
+
+    private IReadOnlyList<M.RestaurantTagItem> filteredTags =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? tags
+            : tags
+                .Where(tag => tag.Name.Contains(searchText.Trim(), StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (!firstRender)
+            {
+                return;
+            }
+
+            session = await AuthService.GetSessionAsync();
+            if (session is null)
+            {
+                NavigationManager.NavigateTo("/login");
+                return;
+            }
+
+            tags = await TagsClient.GetTagsAsync(session.Id);
+            isLoading = false;
+            StateHasChanged();
+        }
+        catch
+        {
+            throw new Exception();
+        }
+    }
+
+     private async Task LoadTagsAsync()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        tags = await TagsClient.GetTagsAsync(session.Id);
+        isLoading = false;
+        StateHasChanged();
+    }
+    
+    private async Task OpenDialogAsync(Guid? tagId)
+    {
+        var parameters = new DialogParameters<TagEntry>
+        {
+            { x => x.TagId, tagId }       
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true, NoHeader = true };
+
+        var dialog = await DialogService.ShowAsync<TagEntry>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await LoadTagsAsync();
+        }
+    }
+}

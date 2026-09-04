@@ -1,0 +1,230 @@
+@page "/login"
+@layout NoAuthLayout
+@inject JournalAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Dine Log Login</PageTitle>
+
+@if (isLoading)
+{
+    <div class="auth-scene">
+        <div class="auth-loading">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <p>Opening your dining diary...</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="auth-scene">
+        <div class="auth-card">
+            <section class="auth-form-panel">
+                <div class="auth-form-header">
+                    <span class="auth-form-badge">@GetHeaderBadge()</span>
+                    <h2>@GetHeaderTitle()</h2>
+                    <p>@GetHeaderSubtitle()</p>
+                </div>
+
+                <MudStack Spacing="3">
+                    <MudTextField @bind-Value="currentEmail"
+                                  Label="Email"
+                                  Variant="Variant.Outlined"
+                                  InputType="InputType.Email"
+                                  Immediate="true"
+                                  Class="auth-input" />
+
+                    @if (!showForgotPasswordRequest)
+                    {
+                        <MudTextField @bind-Value="password"
+                                      Label="Password"
+                                      Variant="Variant.Outlined"
+                                      InputType="@(showPassword ? InputType.Text : InputType.Password)"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@(showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                      OnAdornmentClick="TogglePassword"
+                                      Class="auth-input" />
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(message))
+                    {
+                        <MudAlert Severity="@messageSeverity" Variant="Variant.Outlined" Dense="true">
+                            @message
+                        </MudAlert>
+                    }
+
+                    @if (!showForgotPasswordRequest)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   Class="auth-submit"
+                                   EndIcon="@Icons.Material.Filled.Login"
+                                   OnClick="HandleLoginAsync">
+                            Open My Dine Log
+                        </MudButton>
+
+                        @if (loginRequiresVerification)
+                        {
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       FullWidth="true"
+                                       Size="Size.Large"
+                                       OnClick="GoToEmailVerification">
+                                Continue To OTP Verification
+                            </MudButton>
+                        }
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   Class="auth-submit"
+                                   EndIcon="@Icons.Material.Filled.MarkEmailRead"
+                                   OnClick="HandleForgotPasswordAsync">
+                            Send OTP Code
+                        </MudButton>
+                    }
+                </MudStack>
+
+                <div class="auth-footer">
+                    @if (!showForgotPasswordRequest)
+                    {
+                        <span>New to Dine Log?</span>
+                        <MudLink Href="/register">Create an account</MudLink>
+                    }
+                    else
+                    {
+                        <span>Remembered your password?</span>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="BackToLogin">Back to sign in</MudButton>
+                    }
+                </div>
+
+                @if (!showForgotPasswordRequest)
+                {
+                    <div class="auth-footer">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="ShowForgotPassword">Forgot password</MudButton>
+                    </div>
+                }
+            </section>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Email { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int? Verified { get; set; }
+
+    [SupplyParameterFromQuery]
+    public int? Reset { get; set; }
+
+    private string currentEmail = string.Empty;
+    private string password = string.Empty;
+    private string? message;
+    private Severity messageSeverity = Severity.Info;
+    private bool isLoading = true;
+    private bool showPassword;
+    private bool showForgotPasswordRequest;
+    private bool loginRequiresVerification;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var session = await AuthService.GetSessionAsync();
+        if (session is not null)
+        {
+            NavigationManager.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        currentEmail = Email ?? await AuthService.GetLastEmailAsync() ?? string.Empty;
+        if (Verified == 1)
+        {
+            message = "OTP verified. You can continue signing in now.";
+            messageSeverity = Severity.Success;
+        }
+        else if (Reset == 1)
+        {
+            message = "Password updated successfully. Please sign in with your new password.";
+            messageSeverity = Severity.Success;
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private void TogglePassword() => showPassword = !showPassword;
+
+    private async Task HandleLoginAsync()
+    {
+        loginRequiresVerification = false;
+
+        if (string.IsNullOrWhiteSpace(currentEmail) || string.IsNullOrWhiteSpace(password))
+        {
+            message = "Please enter both email and password.";
+            messageSeverity = Severity.Warning;
+            return;
+        }
+        var result = await AuthService.LoginAsync(currentEmail.Trim(), password);
+        message = result.Message;
+        messageSeverity = result.Success ? Severity.Success : Severity.Error;
+        loginRequiresVerification = result.RequiresVerification;
+        if (result.Success)
+        {
+            NavigationManager.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleForgotPasswordAsync()
+    {
+        if (string.IsNullOrWhiteSpace(currentEmail))
+        {
+            message = "Please enter your email.";
+            messageSeverity = Severity.Warning;
+            return;
+        }
+        var result = await AuthService.RequestPasswordResetAsync(currentEmail.Trim());
+        message = result.Message;
+        messageSeverity = result.Success ? Severity.Success : Severity.Error;
+        if (result.Success)
+        {
+            NavigationManager.NavigateTo($"/otp-verification?flow=reset&email={Uri.EscapeDataString(currentEmail.Trim())}", forceLoad: false);
+        }
+    }
+
+    private void ShowForgotPassword()
+    {
+        showForgotPasswordRequest = true;
+        loginRequiresVerification = false;
+        message = null;
+        password = string.Empty;
+    }
+
+    private void BackToLogin()
+    {
+        showForgotPasswordRequest = false;
+        message = null;
+    }
+
+    private void GoToEmailVerification()
+    {
+        NavigationManager.NavigateTo($"/otp-verification?flow=email&email={Uri.EscapeDataString(currentEmail.Trim())}", forceLoad: false);
+    }
+
+    private string GetHeaderBadge() => showForgotPasswordRequest ? "Reset Password" : "Welcome Back";
+
+    private string GetHeaderTitle() => showForgotPasswordRequest ? "Send OTP to continue" : "Sign in to your diary";
+
+    private string GetHeaderSubtitle() => showForgotPasswordRequest
+        ? "We will send a one-minute OTP before you can create a new password."
+        : "Resume your dining story";
+}

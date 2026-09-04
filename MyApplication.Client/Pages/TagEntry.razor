@@ -1,0 +1,202 @@
+@page "/tag-entry"
+@page "/tag-entry/{TagId:guid}"
+@inject JournalAuthService AuthService
+@inject RestaurantTagsClient TagsClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Tag Entry</PageTitle>
+
+@if (isLoading)
+{
+    <div class="auth-loading">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <p>Opening tag entry...</p>
+    </div>
+}
+else
+{
+    <div class="tag-entry-page">
+        <section class="tag-entry-shell">
+            <div class="tag-entry-header">
+                <div class="tag-entry-title">
+                    <span class="dine-card-tag">Tag Entry</span>
+                    <h2>@(isEditMode ? "Edit Tag Expression" : "Create New Tag Expression")</h2>
+                </div>
+
+                <div class="tag-entry-actions">
+                    @if (isEditMode)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                    Color="Color.Error"
+                                    Size="Size.Medium"
+                                    OnClick="Delete"
+                                    Title="Delete" />
+                    }
+
+                    <MudIconButton Icon="@Icons.Material.Filled.Save"
+                                Color="Color.Default"
+                                Size="Size.Medium"
+                                OnClick="SaveAsync"
+                                Title="Save" />
+
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                Color="Color.Default"
+                                Size="Size.Medium"
+                                OnClick="CloseAsync"
+                                Title="Close" />
+                </div>
+            </div>
+
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="draft.Name"
+                                  Label="Tag Name"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  Placeholder="e.g. date-night, rooftop, spicy" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="draft.Category"
+                                  Label="Category"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  Placeholder="Mood, Occasion, Food Style, Setting" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="draft.Description"
+                                  Label="Description"
+                                  Variant="Variant.Outlined"
+                                  Lines="4"
+                                  HelperText="Explain when this tag should be used in a diary entry." />
+                </MudItem>
+            </MudGrid>
+
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <MudAlert Severity="@messageSeverity" Variant="Variant.Outlined" Dense="true" Class="restaurant-form-alert">
+                    @message
+                </MudAlert>
+            }
+
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? TagId { get; set; }
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool isLoading = true;
+    private bool isEditMode;
+    private string? message;
+    private Severity messageSeverity = Severity.Info;
+    private M.JournalSession? session;
+    private TagDraft draft = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        session = await AuthService.GetSessionAsync();
+        if (session is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        draft.UserId = session.Id;
+
+        if (TagId is Guid tagId)
+        {
+            var existing = await TagsClient.GetTagAsync(tagId, session.Id);
+            if (existing is not null)
+            {
+                isEditMode = true;
+                draft = new TagDraft
+                {
+                    Id = existing.Id,
+                    UserId = existing.UserId,
+                    Name = existing.Name,
+                    Category = existing.Category,
+                    Description = existing.Description
+                };
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        Gva.IsLoading = true;
+        await Task.Delay(1000);
+
+        if (string.IsNullOrWhiteSpace(draft.Name) || string.IsNullOrWhiteSpace(draft.Category))
+        {
+            message = "Tag name and category are required.";
+            messageSeverity = Severity.Warning;
+            Gva.IsLoading = false;
+            return;
+        }
+
+        var savedTag = new M.RestaurantTagItem
+        {
+            Id = draft.Id == Guid.Empty ? Guid.NewGuid() : draft.Id,
+            UserId = session!.Id,
+            Name = draft.Name.Trim(),
+            Category = draft.Category.Trim(),
+            Description = draft.Description?.Trim() ?? string.Empty
+        };
+
+        if (isEditMode)
+        {
+            await TagsClient.UpdateTagAsync(savedTag);
+        }
+        else
+        {
+            await TagsClient.AddTagAsync(savedTag);
+        }
+        ShowSuccessSnackBar("Tag Saved Successfully");
+
+        MudDialog.Close(DialogResult.Ok(savedTag));
+        ComFn.GoToRoute("tags");
+        Gva.IsLoading = false;
+    }
+
+    private async Task Delete()
+    {
+        Gva.IsLoading = true;
+        await Task.Delay(1000);
+
+        var deleteTag = new M.RestaurantTagItem
+        {
+            Id = draft.Id == Guid.Empty ? Guid.NewGuid() : draft.Id,
+            UserId = session!.Id,
+            Name = draft.Name.Trim(),
+            Category = draft.Category.Trim(),
+            Description = draft.Description?.Trim() ?? string.Empty
+        };
+        await TagsClient.DeleteTagAsync(draft.Id, session!.Id);
+        ShowSuccessSnackBar("Tag Deleted Successfully");
+
+        MudDialog.Close(DialogResult.Ok(deleteTag));
+        ComFn.GoToRoute("tags");
+        Gva.IsLoading = false;
+    }
+
+    private void CloseAsync() => MudDialog.Cancel();
+
+    private void ShowSuccessSnackBar(string message)
+    {
+        Snackbar.Clear();
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+        Snackbar.Add(message, Severity.Success);
+    }
+
+    private class TagDraft
+    {
+        public Guid Id { get; set; }
+        public Guid UserId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+    }
+}

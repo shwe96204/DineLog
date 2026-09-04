@@ -1,0 +1,496 @@
+@page "/restaurant-diary"
+@page "/diary-folder"
+@inject JournalAuthService AuthService
+@inject DiariesClient DiariesClient
+@inject RestaurantDiariesClient RestaurantDiariesClient
+@inject RestaurantsClient RestaurantsClient
+@inject RestaurantTagsClient RestaurantTagsClient
+@inject RestaurantTypesClient RestaurantTypesClient
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Dine Log Diaries</PageTitle>
+
+@if (isLoading)
+{
+    <div class="auth-loading">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <p>Preparing your dining folders...</p>
+    </div>
+}
+else
+{
+    <div class="diary-workspace" style="@($"--diary-accent:{CurrentDiaryAccent}")">
+        <aside class="diary-folder-panel diary-right-panel">
+            <div class="diary-panel-card diary-panel-card-stacked">
+                <div class="diary-panel-header">
+                    <div>
+                        <span class="dine-home-kicker">Folders</span>
+                        <h2>My diaries</h2>
+                    </div>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="() => OpenDiaryDialogAsync(null)">
+                        New Folder
+                    </MudButton>
+                </div>
+
+                <div class="diary-folder-scroll">
+                    <div class="diary-folder-list">
+                        @if (diaries.Count == 0)
+                        {
+                            <div class="diary-empty-card">
+                                <strong>No folders yet</strong>
+                                <p>Create your first diary folder, then start saving restaurant memories inside it.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var diary in diaries)
+                            {
+                                <button type="button"
+                                        class="diary-folder-card @(selectedDiary?.Id == diary.Id ? "diary-folder-card-active" : string.Empty)"
+                                        style="@GetDiaryCardStyle(diary)"
+                                        @onclick="() => SelectDiaryAsync(diary.Id)">
+                                    <div class="diary-folder-cover">
+                                        @if (!string.IsNullOrWhiteSpace(diary.CoverImageDataUrl))
+                                        {
+                                            <img src="@diary.CoverImageDataUrl" alt="@diary.DiaryName cover" />
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.Folder" />
+                                        }
+                                    </div>
+
+                                    <div class="diary-folder-copy">
+                                        <h3>@diary.DiaryName</h3>
+                                        <span>@($"{diary.RestaurantDiaryCount} {(diary.RestaurantDiaryCount == 1 ? "entry" : "entries")}")</span>
+                                    </div>
+                                </button>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <div class="diary-folder-footer">
+                    @if (selectedDiary is not null)
+                    {
+                        <div class="diary-folder-footer-card" style="@($"background:{selectedDiary.Color}1A")">
+                            <div>
+                                <strong>@selectedDiary.DiaryName</strong>
+                                <span>@selectedDiary.DateCreated.ToString("dd MMM yyyy")</span>
+                            </div>
+
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Edit"
+                                       CssClass="w-100px"
+                                       OnClick="() => OpenDiaryDialogAsync(selectedDiary.Id)">
+                            </MudButton>
+
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="diary-folder-footer-note">
+                            <span>Choose a folder to view its restaurant diary cards.</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </aside>
+
+        <section class="diary-content-panel">
+            <div class="diary-panel-card diary-panel-card-wide diary-panel-card-stacked">
+                @if (selectedDiary is null)
+                {
+                    <div class="diary-empty-stage">
+                        <MudIcon Icon="@Icons.Material.Outlined.FolderCopy" Size="Size.Large" />
+                        <h2>Create or select a diary folder</h2>
+                        <p>Your restaurant diary entries will appear here after you choose a folder.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="diary-content-head">
+                        <div class="diary-content-title">
+                            <div class="diary-content-folder-mark" style="@($"background:{selectedDiary.Color}")">
+                                @if (!string.IsNullOrWhiteSpace(selectedDiary.CoverImageDataUrl))
+                                {
+                                    <img src="@selectedDiary.CoverImageDataUrl" alt="@selectedDiary.DiaryName" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Folder" />
+                                }
+                            </div>
+
+                            <div>
+                                <span class="dine-home-kicker">Restaurant Diary</span>
+                                <h1>@selectedDiary.DiaryName</h1>
+                                <p>@selectedDiary.Description</p>
+                            </div>
+                        </div>
+
+                        <div class="diary-head-actions">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="() => OpenEntryDialogAsync(null)">
+                                Add Entry
+                            </MudButton>
+                        </div>
+                    </div>
+
+                    <div class="diary-content-scroll">
+                        <div class="diary-entry-list">
+                            @if (restaurantDiaries.Count == 0)
+                            {
+                                <div class="diary-empty-card diary-empty-card-inline">
+                                    <strong>No restaurant diaries in this folder yet</strong>
+                                    <p>Add your first entry for this folder to start building a visual dining guide.</p>
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var entry in restaurantDiaries)
+                                {
+                                    <div class="diary-entry-card"
+                                         role="button"
+                                         tabindex="0"
+                                         @onclick="() => OpenEntryDialogAsync(entry.Id)">
+                                        <div class="diary-entry-carousel-shell" @onclick:stopPropagation="true">
+                                            @{
+                                                var displayImages = GetDisplayImages(entry);
+                                            }
+
+                                            @if (displayImages.Count == 0)
+                                            {
+                                                <div class="diary-entry-carousel-empty">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Large" />
+                                                    <strong>No photos yet</strong>
+                                                </div>
+                                            }
+                                            else
+                                            {                                           
+                                                <MudCarousel Class="mud-width-full" Style="height: 220px;" ShowArrows="true" ShowBullets="true" EnableSwipeGesture="true" AutoCycle="false" TData="object">
+                                                    @foreach (var image in displayImages)
+                                                    {
+                                                        <MudCarouselItem  Class="diary-entry-carousel-item">
+                                                            <img src="@image"
+                                                                alt="@($"{entry.RestaurantName} memory photo")" />
+                                                        </MudCarouselItem>
+                                                    }
+                                                </MudCarousel>                                    
+                                            }
+                                        </div>
+
+                                        <div class="diary-entry-card-body">
+                                            <div class="diary-entry-card-topline">
+                                                <div>
+                                                    <h2>@entry.RestaurantName</h2>
+                                                    <div class="diary-entry-chip-row">
+                                                        <span class="diary-entry-chip">
+                                                            <MudIcon Icon="@Icons.Material.Outlined.CalendarMonth" Size="Size.Small" />
+                                                            @entry.VisitedDate?.ToString("dd/MM/yyyy")
+                                                        </span>
+                                                        <span class="diary-entry-chip">
+                                                            <MudIcon Icon="@Icons.Material.Outlined.LocalCafe" Size="Size.Small" />
+                                                            @GetRestaurantTypeName(entry.RestaurantId)
+                                                        </span>
+                                                        @if (!string.IsNullOrWhiteSpace(GetRestaurantLocation(entry)))
+                                                        {
+                                                            <span class="diary-entry-chip diary-entry-chip-soft">
+                                                                <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />
+                                                                @GetRestaurantLocation(entry)
+                                                            </span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="diary-entry-rating-board">
+                                                <strong>Full dining experience</strong>
+                                                <div class="diary-entry-rating-rows">
+                                                    <div class="diary-entry-rating-row">
+                                                        <span>Overall rating</span>
+                                                        <MudRating SelectedValue="@entry.OverallRating" MaxValue="5" ReadOnly="true"  Color="Color.Warning" />
+                                                    </div>
+                                                    <div class="diary-entry-rating-row">
+                                                        <span>Tasty</span>
+                                                        <MudRating SelectedValue="@entry.TasteScore" MaxValue="5" ReadOnly="true" Color="Color.Warning" />
+                                                    </div>
+                                                    <div class="diary-entry-rating-row">
+                                                        <span>Service</span>
+                                                        <MudRating SelectedValue="@entry.ServiceScore" MaxValue="5" ReadOnly="true" Color="Color.Warning" />
+                                                    </div>
+                                                    <div class="diary-entry-rating-row">
+                                                        <span>Cleanliness</span>
+                                                        <MudRating SelectedValue="@entry.CleanlinessScore" MaxValue="5" ReadOnly="true" Color="Color.Warning" />
+                                                    </div>
+                                                    <div class="diary-entry-rating-row">
+                                                        <span>Ambience</span>
+                                                        <MudRating SelectedValue="@entry.AmbienceScore" MaxValue="5" ReadOnly="true" Color="Color.Warning" />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="diary-entry-section">
+                                                <span class="diary-entry-section-label">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.EditNote" Size="Size.Small" />
+                                                    Description
+                                                </span>
+                                                <div class="diary-entry-section-card">
+                                                    <p>@entry.Description</p>
+                                                </div>
+                                            </div>
+
+                                            @if (!string.IsNullOrWhiteSpace(entry.Remark))
+                                            {   
+                                                <div class="diary-entry-section">
+                                                    <span class="diary-entry-section-label">
+                                                        <MudIcon Icon="@Icons.Material.Outlined.StickyNote2" Size="Size.Small" />
+                                                        Remarks
+                                                    </span>
+                                                    <p class="diary-entry-remark">@entry.Remark</p>
+                                                </div>
+                                            }
+                                        </div>
+
+                                        @if (entry.TagIds.Count > 0)
+                                        {
+                                            <div class="restaurant-entry-tags diary-entry-tags-inline">
+                                                @foreach (var tagId in entry.TagIds)
+                                                {
+                                                    <span>#@GetTagName(tagId)</span>
+                                                }
+                                            </div>
+                                        }
+
+                                        <div class="diary-entry-meta">
+                                            <span><MudIcon Icon="@Icons.Material.Outlined.CalendarMonth" /> @entry.VisitedDate?.ToString("d MMM yyyy")</span>
+                                            <span><MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary" /> @($"{GetDisplayImages(entry).Count} photos")</span>
+                                            <div class="restaurant-list-footer-actions">
+                                                <span class="restaurant-list-action-icon">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Edit" />
+                                                </span>
+                                                <span class="restaurant-list-action-icon restaurant-list-action-icon-soft">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowRight" />
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    private M.JournalSession? session;
+    private bool isLoading = true;
+    private List<M.DiaryFolderItem> diaries = [];
+    private List<M.RestaurantDiaryItem> restaurantDiaries = [];
+    private List<M.RestaurantItem> restaurants = [];
+    private List<M.RestaurantTagItem> availableTags = [];
+    private List<M.RestaurantTypeItem> restaurantTypes = [];
+    private M.DiaryFolderItem? selectedDiary;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadPageAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadPageAsync()
+    {
+        session = await AuthService.GetSessionAsync();
+        if (session is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        restaurantTypes = (await RestaurantTypesClient.GetRestaurantTypesAsync()).ToList();
+        restaurants = (await RestaurantsClient.GetRestaurantsAsync(session.Id)).ToList();
+        availableTags = (await RestaurantTagsClient.GetTagsAsync(session.Id)).ToList();
+        diaries = (await DiariesClient.GetDiariesAsync(session.Id)).ToList();
+
+        if (selectedDiary is not null)
+        {
+            selectedDiary = diaries.FirstOrDefault(item => item.Id == selectedDiary.Id);
+        }
+
+        selectedDiary ??= diaries.FirstOrDefault();
+
+        if (selectedDiary is not null)
+        {
+            await LoadRestaurantDiariesAsync(selectedDiary.Id);
+        }
+        else
+        {
+            restaurantDiaries = [];
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadRestaurantDiariesAsync(Guid diaryId)
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        restaurantDiaries = (await RestaurantDiariesClient.GetRestaurantDiariesAsync(session.Id, diaryId)).ToList();
+    }
+
+    private async Task SelectDiaryAsync(Guid diaryId)
+    {
+        selectedDiary = diaries.FirstOrDefault(item => item.Id == diaryId);
+        if (selectedDiary is null)
+        {
+            return;
+        }
+
+        await LoadRestaurantDiariesAsync(diaryId);
+        StateHasChanged();
+    }
+
+    private async Task OpenDiaryDialogAsync(Guid? diaryId)
+    {
+        var parameters = new DialogParameters<DiaryFolderEntry>
+        {
+            { x => x.DiaryId, diaryId }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            NoHeader = true
+        };
+
+        var dialog = await DialogService.ShowAsync<DiaryFolderEntry>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is null || result.Canceled)
+        {
+            return;
+        }
+
+        var previousDiaryId = selectedDiary?.Id;
+        await LoadPageAsync();
+
+        if (result.Data is M.DiaryFolderItem savedDiary)
+        {
+            selectedDiary = diaries.FirstOrDefault(item => item.Id == savedDiary.Id) ?? selectedDiary;
+        }
+        else if (result.Data is DiaryFolderEntry.DeletedDiaryResult deletedDiary && previousDiaryId == deletedDiary.DeletedDiaryId)
+        {
+            selectedDiary = diaries.FirstOrDefault();
+        }
+
+        if (selectedDiary is not null)
+        {
+            await LoadRestaurantDiariesAsync(selectedDiary.Id);
+        }
+    }
+
+    private async Task OpenEntryDialogAsync(Guid? entryId)
+    {
+        if (selectedDiary is null)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters<RestaurantDiaryEntry>
+        {
+            { x => x.DiaryId, selectedDiary.Id },
+            { x => x.DiaryName, selectedDiary.DiaryName },
+            { x => x.EntryId, entryId }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true,
+            NoHeader = true
+        };
+
+        var dialog = await DialogService.ShowAsync<RestaurantDiaryEntry>("", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is null || result.Canceled)
+        {
+            return;
+        }
+
+        await LoadPageAsync();
+        if (selectedDiary is not null)
+        {
+            await LoadRestaurantDiariesAsync(selectedDiary.Id);
+        }
+    }
+
+    private string GetRestaurantTypeName(Guid restaurantId)
+    {
+        var restaurant = restaurants.FirstOrDefault(item => item.Id == restaurantId);
+        if (restaurant is null)
+        {
+            return "Unknown";
+        }
+
+        return restaurantTypes.FirstOrDefault(item => item.Id == restaurant.RestaurantTypeId)?.Name ?? "Unknown";
+    }
+
+    private string GetTagName(Guid tagId) =>
+        availableTags.FirstOrDefault(tag => tag.Id == tagId)?.Name ?? "tag";
+
+    private static string GetRestaurantLocation(M.RestaurantDiaryItem entry) =>
+        string.Join(", ", new[] { entry.RestaurantCity, entry.RestaurantCountry }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static List<string> GetDisplayImages(M.RestaurantDiaryItem entry)
+    {
+        var images = new List<string>();
+
+        if (entry.GalleryImages.Count > 0)
+        {
+            images.AddRange(entry.GalleryImages.Where(image => !string.IsNullOrWhiteSpace(image)));
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(entry.Image))
+            {
+                images.Add(entry.Image);
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.DetailImage) && entry.DetailImage != entry.Image)
+            {
+                images.Add(entry.DetailImage);
+            }
+        }
+
+        return images;
+    }
+    
+
+    private string GetDiaryCardStyle(M.DiaryFolderItem diary) =>
+        $"--folder-accent:{diary.Color};";
+
+    private string CurrentDiaryAccent => selectedDiary?.Color ?? "#d19044";
+}

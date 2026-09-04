@@ -1,0 +1,247 @@
+.app-theme-root {
+    --app-bg:
+        radial-gradient(circle at top left, rgba(217, 163, 95, 0.2), transparent 18%),
+        linear-gradient(180deg, #f8f3ed 0%, #f4eee7 100%);
+    --app-panel: rgba(255, 253, 250, 0.94);
+    --app-panel-strong: #fffdf9;
+    --app-panel-soft: #f7efe6;
+    --app-card: linear-gradient(180deg, #fffdfa, #fffaf5);
+    --app-border: rgba(107, 79, 57, 0.08);
+    --app-border-strong: rgba(184, 80, 66, 0.15);
+    --app-shadow: 0 24px 70px rgba(110, 80, 54, 0.08);
+    --app-shadow-soft: 0 8px 18px rgba(96, 73, 55, 0.05);
+    --app-text: #2f241c;
+    --app-text-soft: #776354;
+    --app-text-muted: #8b7767;
+    --app-accent: #b85042;
+    --app-accent-soft: rgba(184, 80, 66, 0.1);
+    --app-success-soft: rgba(109, 139, 116, 0.12);
+    --app-success-text: #5c755f;
+    --app-icon-surface: rgba(245, 237, 230, 0.9);
+    --app-overlay: rgba(27, 20, 16, 0.38);
+}
+
+.app-theme-root.app-theme-dark {
+    --app-bg:
+        radial-gradient(circle at top left, rgba(201, 107, 90, 0.12), transparent 18%),
+        linear-gradient(180deg, #181411 0%, #221c18 100%);
+    --app-panel: rgba(35, 30, 26, 0.96);
+    --app-panel-strong: #2a241f;
+    --app-panel-soft: #332b24;
+    --app-card: linear-gradient(180deg, #2b2520, #241f1b);
+    --app-border: rgba(190, 155, 130, 0.12);
+    --app-border-strong: rgba(201, 107, 90, 0.24);
+    --app-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+    --app-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.22);
+    --app-text: #f2e8e0;
+    --app-text-soft: #c0b0a0;
+    --app-text-muted: #aa9686;
+    --app-accent: #e07766;
+    --app-accent-soft: rgba(224, 119, 102, 0.14);
+    --app-success-soft: rgba(126, 163, 134, 0.16);
+    --app-success-text: #9bc4a3;
+    --app-icon-surface: rgba(66, 56, 48, 0.92);
+    --app-overlay: rgba(8, 7, 6, 0.58);
+    color: var(--app-text);
+}
+
+/* Start Common Utilities */
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: "Cormorant Garamond", serif;
+}
+
+h2 {
+    font-size: 30px;
+}
+
+button {
+    min-width: 42px;
+    min-height: 42px;
+}
+
+div, span {
+    font-size: 16px;
+}
+
+.w-100px {
+    width: 100px !important;
+}
+
+.f-13 {
+    font-size: 13px;
+}
+
+.mb-20px {
+    margin-bottom: 20px !important;
+}
+
+.mt-20px {
+    margin-top: 20px !important;
+}
+
+.core-color {
+    color: var(--mud-palette-primary) !important;
+}
+
+/* End Common Utilities */
+
+.logo-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hrms-ss-loading {
+    text-align: center;
+    margin-top: 5px;
+}
+
+    .hrms-ss-loading span {
+        display: inline-block;
+        margin: 0px 1px;
+        width: 20px;
+        height: 20px;
+        border-radius : 2px;
+        background-color: var(--mud-palette-primary);
+    }
+
+        .hrms-ss-loading span:nth-child(1) {
+            -webkit-animation: loading 0.5s infinite alternate 0s;
+            -moz-animation: loading 0.5s infinite alternate 0s;
+            -ms-animation: loading 0.5s infinite alternate 0s;
+            -o-animation: loading 0.5s infinite alternate 0s;
+            animation: loading 0.5s infinite alternate 0s;
+        }
+
+        .hrms-ss-loading span:nth-child(2) {
+            -webkit-animation: loading 0.5s infinite alternate 0.2s;
+            -moz-animation: loading 0.5s infinite alternate 0.2s;
+            -ms-animation: loading 0.5s infinite alternate 0.2s;
+            -o-animation: loading 0.5s infinite alternate 0.2s;
+            animation: loading 0.5s infinite alternate 0.2s;
+        }
+
+        .hrms-ss-loading span:nth-child(3) {
+            -webkit-animation: loading 0.5s infinite alternate 0.4s;
+            -moz-animation: loading 0.5s infinite alternate 0.4s;
+            -ms-animation: loading 0.5s infinite alternate 0.4s;
+            -o-animation: loading 0.5s infinite alternate 0.4s;
+            animation: loading 0.5s infinite alternate 0.4s;
+        }
+
+        .hrms-ss-loading span:nth-child(4) {
+            -webkit-animation: loading 0.5s infinite alternate 0.6s;
+            -moz-animation: loading 0.5s infinite alternate 0.6s;
+            -ms-animation: loading 0.5s infinite alternate 0.6s;
+            -o-animation: loading 0.5s infinite alternate 0.6s;
+            animation: loading 0.5s infinite alternate 0.6s;
+        }
+
+@-webkit-keyframes loading {
+    0% {
+        opacity: 0.1;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@-moz-keyframes loading {
+    0% {
+        opacity: 0.1;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@-ms-keyframes loading {
+    0% {
+        opacity: 0.1;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@-o-keyframes loading {
+    0% {
+        opacity: 0.1;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes loading {
+    0% {
+        opacity: 0.1;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.particle {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: floatParticle 12s infinite linear;
+    }
+
+    @keyframes floatParticle {
+      0% {
+        transform: translateY(100vh) rotate(0deg);
+        opacity: 0;
+      }
+      10% { opacity: 0.6; }
+      90% { opacity: 0.6; }
+      100% {
+        transform: translateY(-20vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+.gift-icon {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 20;
+      background: #ffffff85;
+      backdrop-filter: blur(8px);
+      padding: 5px 10px;
+      border-radius: 40px;
+      font-size: 0.75rem;
+      color: black;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgb(196 102 90 / 53%);
+      animation: gentlePulse 2s infinite;
+    }
+
+.gift-icon-button {
+      cursor: pointer;
+      pointer-events: auto;
+      appearance: none;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+.gift-icon-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(122, 80, 60, 0.16);
+      background: rgba(255, 255, 255, 0.92);
+    }
+    
+    @keyframes gentlePulse {
+      0% { opacity: 0.6; transform: scale(0.96);}
+      100% { opacity: 1; transform: scale(1);}
+    }

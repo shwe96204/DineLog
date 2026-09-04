@@ -1,0 +1,338 @@
+@page "/register"
+@layout NoAuthLayout
+@inject JournalAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Dine Log Register</PageTitle>
+
+@if (isLoading)
+{
+    <div class="auth-scene">
+        <div class="auth-loading">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <p>Preparing your first dining page...</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="auth-scene">
+
+        <div class="auth-card auth-card-register">
+            @* <section class="auth-story">
+                <div class="auth-branding">
+                    <span class="auth-logo-mark">DL</span>
+                    <div>
+                        <span class="auth-eyebrow">Start Your Journal</span>
+                        <h1>Turn dining experiences into a personal collection of stories.</h1>
+                    </div>
+                </div>
+
+                <p class="auth-lead">
+                    Save restaurants by mood, note your favorite dishes, and build a private guide
+                    that reflects your own taste instead of public ratings.
+                </p>
+
+                <div class="auth-feature-list">
+                    <div>
+                        <strong>Private reflections</strong>
+                        <span>Keep personal notes without social pressure.</span>
+                    </div>
+                    <div>
+                        <strong>Restaurant memories</strong>
+                        <span>Track atmosphere, service, dishes, and photos.</span>
+                    </div>
+                    <div>
+                        <strong>Simple organization</strong>
+                        <span>Build a clean, searchable diary over time.</span>
+                    </div>
+                </div>
+            </section> *@
+
+            <section class="auth-form-panel">
+                <div class="auth-form-header">
+                    <span class="auth-form-badge">Create Account</span>
+                    <h2>Join Dine Log</h2>
+                    <p>Restaurant diary · memories & meals</p>
+                </div>
+
+                <MudStack Spacing="3">
+                    <div>
+                        <MudTextField @bind-Value="fullName"
+                                      Label="Full name"
+                                      Variant="Variant.Outlined"
+                                      Immediate="true"
+                                      Required="true"
+                                      RequiredError="@string.Empty"
+                                      Class="auth-input"
+                                      OnBlur="NameValidationAsync"
+                                      Error="@(!string.IsNullOrWhiteSpace(fullNameValidationMessage))" />
+                        @if (!string.IsNullOrWhiteSpace(fullNameValidationMessage))
+                        {
+                            <div class="auth-field-validation">@fullNameValidationMessage</div>
+                        }
+                    </div>
+
+                    <div>
+                        <MudTextField @bind-Value="email"
+                                      @bind-Value:after="CheckEmailAvailabilityAsync"
+                                      Label="Email"
+                                      Variant="Variant.Outlined"
+                                      InputType="InputType.Email"
+                                      Required="true"
+                                      RequiredError="@string.Empty"
+                                      Immediate="true"
+                                      OnBlur="CheckEmailAvailabilityAsync"
+                                      Error="@(!string.IsNullOrWhiteSpace(emailValidationMessage))"
+                                      Class="auth-input" />
+                        @if (!string.IsNullOrWhiteSpace(emailValidationMessage))
+                        {
+                            <div class="auth-field-validation">@emailValidationMessage</div>
+                        }
+                    </div>
+
+                    <div>
+                        <MudTextField @bind-Value="password"
+                                      Label="Password"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      InputType="@(showPassword ? InputType.Text : InputType.Password)"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@(showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                      OnAdornmentClick="TogglePassword"
+                                      Error="@(!string.IsNullOrWhiteSpace(passwordValidationMessage))"
+                                      OnBlur="PasswordValidationAsync"
+                                      requirederror="@string.Empty"
+                                      Class="auth-input" />
+                        @if (!string.IsNullOrWhiteSpace(passwordValidationMessage))
+                        {
+                            <div class="auth-field-validation">@passwordValidationMessage</div>
+                        }
+                    </div>
+
+                    <div>
+                        <MudTextField @bind-Value="confirmPassword"
+                                      Label="Confirm password"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      InputType="@(showPassword2 ? InputType.Text : InputType.Password)"
+                                      Adornment="Adornment.End"
+                                      AdornmentIcon="@(showPassword2 ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                      OnAdornmentClick="TogglePassword2"
+                                      Error="@(!string.IsNullOrWhiteSpace(confirmPasswordValidationMessage))"
+                                      OnBlur="ConfirmPasswordValidationAsync"
+                                      RequiredError="@string.Empty"
+                                      Class="auth-input" />
+                        @if (!string.IsNullOrWhiteSpace(confirmPasswordValidationMessage))
+                        {   
+                            <div class="auth-field-validation">@confirmPasswordValidationMessage</div>
+                        }
+                    </div>
+                    
+                    <div>
+                        <MudTextField @bind-Value="passwordHint"
+                                  Label="Password Hint"
+                                  Variant="Variant.Outlined"
+                                  Immediate="true"
+                                  Class="auth-input"
+                                  OnBlur="PasswordHintValidationAsync"
+                                  Error="@(!string.IsNullOrWhiteSpace(passwordHintValidationMessage))" /> 
+                        @if (!string.IsNullOrWhiteSpace(passwordHintValidationMessage))
+                        {
+                            <div class="auth-field-validation">@passwordHintValidationMessage</div>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(message))
+                    {
+                        <MudAlert Severity="@messageSeverity" Variant="Variant.Outlined" Dense="true">
+                            @message
+                        </MudAlert>
+                    }
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               Size="Size.Large"
+                               Class="auth-submit"
+                               EndIcon="@Icons.Material.Filled.AutoAwesome"
+                               OnClick="HandleRegisterAsync">
+                        Create My Dine Log
+                    </MudButton>
+
+                </MudStack>
+
+                <div class="auth-footer">
+                    <span>Already have an account?</span>
+                    <MudLink Href="/login">Sign in</MudLink>
+                </div>
+            </section>
+        </div>
+    </div>
+}
+
+@code {
+    private string fullName = string.Empty;
+    private string email = string.Empty;
+    private string password = string.Empty;
+    private string confirmPassword = string.Empty;
+    private string passwordHint = string.Empty;
+    private string? message;
+    private string? fullNameValidationMessage;
+    private string? emailValidationMessage;
+    private string? passwordValidationMessage;
+    private string? confirmPasswordValidationMessage;
+    private string? passwordHintValidationMessage;
+    private Severity messageSeverity = Severity.Info;
+    private bool isLoading = true;
+    private bool showPassword, showPassword2;
+    private bool isEmailTaken;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var session = await AuthService.GetSessionAsync();
+        if (session is not null)
+        {
+            NavigationManager.NavigateTo("/", forceLoad: false);
+            return;
+        }
+
+        email = await AuthService.GetLastEmailAsync() ?? string.Empty;
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private void TogglePassword() => showPassword = !showPassword;
+
+    private void TogglePassword2() => showPassword2 = !showPassword2;
+
+    private async Task CheckEmailAvailabilityAsync()
+    {
+        isEmailTaken = false;
+        emailValidationMessage = null;
+
+        var normalizedEmail = email.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            emailValidationMessage = "Email is required.";
+            return;
+        }
+
+        if (!ComFn.IsValidEmail(normalizedEmail))
+        {
+            emailValidationMessage = "Please enter a valid email address.";
+            return;
+        }
+
+        isEmailTaken = await AuthService.EmailExistsAsync(normalizedEmail);
+        if (isEmailTaken)
+        {
+            emailValidationMessage = "This email is already registered.";
+        }
+    }
+
+    private async Task NameValidationAsync()
+    {
+        fullNameValidationMessage = null;
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            fullNameValidationMessage = "Full name is required.";
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    private async Task PasswordValidationAsync()
+    {
+        passwordValidationMessage = null;
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            passwordValidationMessage = "Password is required.";
+        }
+        else if (password.Length < 6)
+        {
+            passwordValidationMessage = "Password must be at least 6 characters.";
+        }
+    }
+
+    private async Task ConfirmPasswordValidationAsync()
+    {
+        confirmPasswordValidationMessage = null;
+        if (string.IsNullOrWhiteSpace(confirmPassword))
+        {
+            confirmPasswordValidationMessage = "Please confirm your password.";
+        }
+        else if (!string.IsNullOrWhiteSpace(password) && password != confirmPassword)
+        {
+            confirmPasswordValidationMessage = "Passwords do not match.";
+        }
+    }
+
+    private async Task PasswordHintValidationAsync()
+    {
+        passwordHintValidationMessage = null;
+        if (!string.IsNullOrWhiteSpace(passwordHint) && passwordHint.Length > 50)
+        {
+            passwordHintValidationMessage = "Password hint cannot exceed 50 characters.";
+        }
+    }
+
+    private async Task HandleRegisterAsync()
+    {
+        ClearValidationMessages();
+        message = null;
+
+        await NameValidationAsync();
+        await CheckEmailAvailabilityAsync();
+        await PasswordValidationAsync();
+        await ConfirmPasswordValidationAsync();
+        await PasswordHintValidationAsync();
+
+
+        if (HasFieldValidationErrors())
+        {
+            return;
+        }
+
+        await CheckEmailAvailabilityAsync();
+        if (isEmailTaken)
+        {
+            return;
+        }
+
+        var result = await AuthService.RegisterAsync(new M.JournalUser
+        {
+            FullName = fullName.Trim(),
+            Email = email.Trim(),
+            Password = password,
+            PasswordHint = passwordHint
+        });
+
+        message = result.Message;
+        messageSeverity = result.Success ? Severity.Success : Severity.Error;
+
+        if (result.Success)
+        {
+            NavigationManager.NavigateTo($"/otp-verification?flow=email&email={Uri.EscapeDataString(result.Email)}", forceLoad: false);
+        }
+    }
+
+    private void ClearValidationMessages()
+    {
+        fullNameValidationMessage = null;
+        emailValidationMessage = null;
+        passwordValidationMessage = null;
+        confirmPasswordValidationMessage = null;
+    }
+
+    private bool HasFieldValidationErrors() =>
+        !string.IsNullOrWhiteSpace(fullNameValidationMessage) ||
+        !string.IsNullOrWhiteSpace(emailValidationMessage) ||
+        !string.IsNullOrWhiteSpace(passwordValidationMessage) ||
+        !string.IsNullOrWhiteSpace(confirmPasswordValidationMessage);
+}

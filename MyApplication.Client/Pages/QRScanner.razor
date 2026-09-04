@@ -1,0 +1,154 @@
+
+@page "/scanner"
+@implements IAsyncDisposable
+
+
+    <MudButton 
+    Variant="Variant.Filled" 
+    EndIcon="@Icons.Material.Filled.Scanner" 
+    Color="Color.Primary" @onclick="ScanClick">QR</MudButton>
+
+
+    <div id="qr-scanner-shell" class="qr-scanner-shell">
+        <div id="qr-reader" class="qr-reader"></div>
+    </div>
+
+
+@code {
+    [Parameter]
+    public string CurrentUrl { get; set; } = "scanseller";
+
+    [Parameter]
+    public bool IsScan { get; set; } = true;
+
+    [Parameter]
+    public EventCallback OnSuccess { get; set; }
+
+    private MessageUpdateInvokeHelper? msgInvokeHelper;
+    private DotNetObjectReference<MessageUpdateInvokeHelper>? messageReference;
+    private bool isDisposed;
+
+    private bool btnProcess, loading;
+    
+    private bool Loading
+    {
+        get { return loading; }
+        set
+        {
+            loading = value;
+            _ = InvokeAsync(() => JSRuntime.InvokeVoidAsync("ScanQRCodeJS.ToggleLoading", loading).AsTask());
+        }
+    }
+
+    //private bool enableQrScan = true;
+
+    protected override void OnInitialized()
+    {
+        Loading = true;
+        msgInvokeHelper = new MessageUpdateInvokeHelper(ScanSellerQRCode);
+        messageReference = DotNetObjectReference.Create(msgInvokeHelper);
+        StateHasChanged();
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+
+                await GetData();
+                StateHasChanged();
+            }
+            catch (Exception)
+            {
+                
+            }
+        }
+    }
+
+    private async Task GetData()
+    {
+        try
+        {
+            await CreateQRScanFun();
+        }
+        catch (Exception)
+        {
+            
+        }
+    }
+
+    private async Task CreateQRScanFun()
+    {
+        await JSRuntime.InvokeAsync<bool>("ScanQRCodeJS.disposeScan", "html5QrcodeScanner");
+        await CreatScanner();
+    }
+
+    private async Task CreatScanner()
+    {
+        if (isDisposed || CurrentUrl is null || messageReference is null)
+        {
+            return;
+        }
+
+        var success = await JSRuntime.InvokeAsync<bool>("ScanQRCodeJS.scanQR", messageReference, IsScan);
+        if (!CurrentUrl.Contains("scanseller") && !IsScan)
+        {
+            await JSRuntime.InvokeVoidAsync("ScanQRCodeJS.BrowseClick");
+        }
+        ComFn.JSConsole("Scan QR Code Success: " + success);
+        ComFn.JSConsole("Finish code in C#;");
+        if (success) Loading = false;
+    }
+
+        public async Task ScanClick()
+        {
+            if (btnProcess) return;
+            Loading = btnProcess = true;
+            await JSRuntime.InvokeAsync<bool>("ScanQRCodeJS.disposeScan", "html5QrcodeScanner");
+            IsScan = true;
+            CurrentUrl = "scanseller";
+            await InvokeAsync(StateHasChanged);
+            await Task.Yield();
+            @* await Task.Delay(100); *@
+
+            await CreatScanner();
+            Loading = btnProcess = false;
+        }
+
+    private async void ScanSellerQRCode(object o)
+    {
+        try
+        {
+            if (isDisposed)
+            {
+                return;
+            }
+            if (btnProcess) return;
+            if (o == null) return;
+            
+        }
+        catch (Exception)
+        {
+            
+        }
+    }
+
+
+        
+    public async ValueTask DisposeAsync()
+    {
+        isDisposed = true;
+
+        try
+        {
+            await JSRuntime.InvokeAsync<bool>("ScanQRCodeJS.disposeScan", "html5QrcodeScanner");
+        }
+        catch
+        {
+        }
+
+        messageReference?.Dispose();
+    }
+
+}

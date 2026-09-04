@@ -1,0 +1,323 @@
+.dine-home {
+    display: grid;
+    gap: 22px;
+}
+
+.dine-home-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 12px 6px 6px;
+}
+
+.dine-home-title-block h1 {
+    margin: 10px 0 10px;
+    font-family: "Cormorant Garamond", serif;
+    font-size: clamp(2.4rem, 4vw, 4rem);
+    line-height: 0.98;
+    color: var(--app-text);
+}
+
+.dine-home-title-block p {
+    max-width: 760px;
+    margin: 0;
+    color: var(--app-text-soft);
+    line-height: 1.8;
+}
+
+.dine-home-kicker,
+.dine-card-tag {
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.dine-home-kicker,
+.dine-card-tag {
+    color: var(--app-accent);
+}
+
+.dine-home-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.dine-home-search {
+    min-width: 320px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 20px;
+    border-radius: 999px;
+    background: var(--app-panel-soft);
+    color: var(--app-text-muted);
+}
+
+.dine-home-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 0.9fr 0.9fr;
+    gap: 20px;
+}
+
+.dine-home-card {
+    padding: 28px;
+    border-radius: 28px;
+    background: var(--app-card);
+    border: 1px solid var(--app-border);
+    box-shadow: var(--app-shadow-soft);
+}
+
+.dine-home-feature {
+    background:
+        linear-gradient(145deg, var(--app-accent), var(--mud-palette-tertiary)),
+        var(--app-accent);
+    color: #fff8f4;
+}
+
+.dine-home-feature .dine-card-tag,
+.dine-home-feature h2,
+.dine-home-feature p {
+    color: inherit;
+}
+
+.dine-home-card h2,
+.dine-home-card h3 {
+    margin: 14px 0 10px;
+    font-family: "Cormorant Garamond", serif;
+}
+
+.dine-home-card h2 {
+    font-size: 2rem;
+    line-height: 1.02;
+}
+
+.dine-home-card h3 {
+    font-size: 1.8rem;
+    line-height: 1.04;
+    color: var(--app-text);
+}
+
+.dine-home-card p {
+    margin: 0;
+    color: var(--app-text-soft);
+    line-height: 1.8;
+}
+
+.dine-home-loading {
+    min-height: 60vh;
+    display: grid;
+    place-items: center;
+    gap: 12px;
+    color: var(--app-text-soft);
+    text-align: center;
+}
+
+.dine-dashboard {
+    gap: 26px;
+}
+
+.dine-dashboard-grid {
+    grid-template-columns: 1.45fr 0.75fr 0.75fr;
+}
+
+.dine-dashboard-quote {
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.dine-dashboard-quote h2 {
+    max-width: 740px;
+}
+
+.dine-dashboard-quote-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 24px;
+    color: rgba(255, 248, 244, 0.88);
+}
+
+.dine-dashboard-quote-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dine-dashboard-summary {
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.dine-dashboard-summary h3 {
+    font-size: 3.2rem;
+    line-height: 1;
+}
+
+.dine-dashboard-session {
+    min-width: 0;
+}
+
+.dine-dashboard-section {
+    display: grid;
+    gap: 18px;
+}
+
+.dine-dashboard-section-head h2 {
+    margin: 8px 0 0;
+    font-family: "Cormorant Garamond", serif;
+    font-size: 2.2rem;
+    color: var(--app-text);
+}
+
+.dine-dashboard-restaurant-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.dine-dashboard-restaurant-card,
+.dine-dashboard-diary-card {
+    border-radius: 30px;
+    overflow: hidden;
+    background: var(--app-card);
+    border: 1px solid var(--app-border);
+    box-shadow: var(--app-shadow-soft);
+}
+
+.dine-dashboard-restaurant-media {
+    height: 150px;
+    background: var(--app-panel-soft);
+}
+
+.dine-dashboard-restaurant-media img,
+.dine-dashboard-diary-visual img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.dine-dashboard-restaurant-empty {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--app-text-muted);
+    background: linear-gradient(180deg, rgba(248, 239, 232, 0.94), rgba(242, 232, 223, 0.94));
+}
+
+.dine-dashboard-restaurant-body {
+    padding: 15px;
+    display: grid;
+    gap: 12px;
+}
+
+.dine-dashboard-restaurant-body h3,
+.dine-dashboard-diary-copy h3 {
+    margin: 0;
+    font-family: "DM Sans", sans-serif;
+    font-size: 20px;
+    color: var(--app-text);
+}
+
+.dine-dashboard-restaurant-body p,
+.dine-dashboard-diary-copy p {
+    margin: 0;
+    color: var(--app-text-soft);
+    line-height: 1.7;
+}
+
+.dine-dashboard-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.dine-dashboard-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 999px;
+    background: var(--app-panel-soft);
+    color: var(--app-text-muted);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.dine-dashboard-chip-soft {
+    background: var(--app-accent-soft);
+    color: var(--app-accent);
+}
+
+.dine-dashboard-diary-list {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.dine-dashboard-diary-copy {
+    padding: 22px 24px;
+    display: grid;
+    gap: 14px;
+}
+
+.dine-dashboard-diary-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: var(--app-accent);
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.dine-dashboard-diary-visual {
+    min-height: 100%;
+    background: var(--app-panel-soft);
+}
+
+@media (max-width: 1100px) {
+    .dine-home-grid,
+    .dine-dashboard-restaurant-grid,
+    .dine-dashboard-diary-card,
+    .dine-dashboard-diary-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .dine-home-topbar {
+        flex-direction: column;
+    }
+
+    .dine-home-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .dine-home-search {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .dine-dashboard-restaurant-grid,
+    .dine-dashboard-diary-list{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+
+@media (max-width: 568px) {
+    .dine-dashboard-restaurant-grid,
+    .dine-dashboard-diary-list{
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+}

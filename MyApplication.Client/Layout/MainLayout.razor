@@ -1,0 +1,619 @@
+@inherits LayoutComponentBase
+@using System.IO
+@inject JournalAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@if (isFinishRender)
+{
+    <div class="app-theme-root @ThemeCssClass">
+    <div class="dine-shell">
+        <aside class="dine-sidebar-main">
+            <div class="dine-sidebar-frame">
+                <div class="dine-sidebar-container">
+                    <div class="dine-sidebar-top">
+                        <img src="image/source.gif" width="70" />
+                    </div>
+
+                    <NavMenu />
+
+                    <div class="dine-sidebar-bottom">
+                        <button type="button" class="dine-sidebar-exit" @onclick="HandleLogoutAsync">
+                            <MudIcon Icon="@Icons.Material.Filled.Logout" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="dine-main-shell">
+            <section class="dine-main-profile">
+                <div class="dine-profile-container">
+                    <div class="dine-profile-name logo-section">
+                        <MudIcon Icon="@Icons.Material.Filled.CollectionsBookmark" Color="Color.Primary" Size="Size.Large" />
+                        <h2 class="core-color">DineLog</h2>
+                    </div>
+
+                    <div class="dine-profile-action">
+                        <MudIconButton Icon="@Icons.Material.Outlined.HelpOutline" Color="Color.Inherit" OnClick="@NavigateToLandingPage" title="DineLog Guide & Help" />
+                        <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggleAsync" />
+                        <button type="button" class="dine-profile-trigger" @onclick="OpenProfilePopup">
+                            @if (!string.IsNullOrWhiteSpace(currentUser?.ProfileImageDataUrl))
+                            {
+                                <img src="@currentUser.ProfileImageDataUrl" alt="Profile image" class="dine-profile-trigger-image" />
+                            }
+                            else
+                            {
+                                <span>@GetInitials(session?.FullName)</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="dine-main-frame">
+                <div class="dine-main-container">
+                    <ErrorBoundary>
+                        <ChildContent>
+                            @Body
+                        </ChildContent>
+                        <ErrorContent>
+                            <div class="main-page-empty-state">
+                                <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Size="Size.Large" Class="mb-3" />
+                                <h3>Something went wrong</h3>
+                                <p>We couldn't load this page right now. Please refresh and try again.</p>
+                            </div>
+                        </ErrorContent>
+                    </ErrorBoundary>
+                </div>
+            </section>
+        </main>
+    </div>
+    </div>
+}
+
+@if (showProfilePopup && session is not null)
+{
+    <div class="profile-popup-backdrop app-theme-root @ThemeCssClass" @onclick="CloseProfilePopup">
+        <div class="profile-popup-card" @onclick:stopPropagation="true">
+            <div class="profile-popup-head">
+                <div class="profile-popup-identity">
+                    <div class="profile-popup-avatar">
+                        @if (!string.IsNullOrWhiteSpace(CurrentProfileImage) && !isEditingProfile)
+                        {
+                            <img src="@CurrentProfileImage" alt="Profile image" />
+                        }
+                        else if (!string.IsNullOrEmpty(PreviousProfileImage) && isEditingProfile)
+                        {
+                            <img src="@PreviousProfileImage" alt="Profile image" />
+                        }
+                        else
+                        {
+                            <span>@GetInitials(CurrentProfileName)</span>
+                        }
+                    </div>
+
+                    <div>
+                        <h2>@CurrentProfileName</h2>
+                        <p>@CurrentProfileEmail</p>
+                    </div>
+                </div>
+
+                <div class="profile-popup-head-actions">
+                    
+                    @if (isEditingProfile)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Save"
+                                Color="Color.Primary"
+                                Size="Size.Medium"
+                                OnClick="SaveProfileAsync"
+                                Title="Save" />
+                        
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                Color="Color.Default"
+                                Size="Size.Medium"
+                                OnClick="CloseEditMode"
+                                Title="Close" />
+                    }
+                    else
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                Color="Color.Primary"
+                                Size="Size.Medium"
+                                OnClick="ToggleEditMode"
+                                Title="Edit" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                Color="Color.Default"
+                                Size="Size.Medium"
+                                OnClick="CloseProfilePopup"
+                                Title="Close" />
+                    }
+
+                </div>
+            </div>
+
+            <div class="profile-popup-body">
+                @if (isEditingProfile)
+                {
+                    <div class="profile-edit-grid">
+                        <MudTextField @bind-Value="profileDraft.FullName" 
+                            Label="User name" 
+                            Variant="Variant.Outlined" />
+
+                        <MudTextField @bind-Value="profileDraft.Email" 
+                            Label="Email" 
+                            Variant="Variant.Outlined" 
+                            ReadOnly="true"
+                            InputType="InputType.Email" />
+
+                        <MudTextField @bind-Value="profileDraft.PasswordHint" 
+                            Label="Password Hint" 
+                            Variant="Variant.Outlined" />
+                    </div>
+
+                    <div class="profile-upload-block">
+                        <div>
+                            <span class="core-color">Profile Image</span>
+                        </div>
+                        <div class="profile-upload-container">
+                            <div class="iic-image-inputbox">
+                                <div class="iic-dash-circle">
+                                    <div class="iic-inner-fileicon">
+                                        <MudIcon Size="Size.Large" Icon="@Icons.Material.Filled.CloudUpload" />
+                                        <div class="f-13 core-label-color">
+                                            Upload
+                                        </div>
+                                    </div>
+                                    <InputFile OnChange="HandleProfileImageUploadAsync"accept="image/*" />
+                                </div>
+                            </div>
+                            <div class="profile-upload-preview">
+                                @if (!string.IsNullOrWhiteSpace(CurrentProfileImage))
+                                {
+                                    <img src="@CurrentProfileImage" alt="Profile image preview" />
+                                }
+                                else
+                                {
+                                    <span>@GetInitials(CurrentProfileName)</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="profile-info-grid">
+                        <div class="profile-info-item">
+                            <MudIcon Color="Color.Primary" Icon="@Icons.Material.Filled.Person" />
+                            <div>
+                                <span>User name</span>
+                                <strong>@session.FullName</strong>
+                            </div>
+                        </div>
+
+                        <div class="profile-info-item">
+                            <MudIcon Color="Color.Primary" Icon="@Icons.Material.Filled.Email" />
+                            <div>
+                                <span>Email</span>
+                                <strong>@(currentUser?.Email ?? session.Email)</strong>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(currentUser?.PasswordHint))
+                        {
+                            <div class="profile-info-item">
+                                <MudIcon Color="Color.Primary" Icon="@Icons.Material.Filled.Password" />
+                                <div>
+                                    <span>Password Hint</span>
+                                    <strong>@currentUser?.PasswordHint</strong>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="profile-info-item">
+                            <MudIcon Color="Color.Primary" Icon="@Icons.Material.Filled.CalendarMonth" />
+                            <div>
+                                <span>Date joined</span>
+                                <strong>@currentUser?.DateJoined.ToString("dd-MMM-yyyy")</strong>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(profileMessage))
+                {
+                    <MudAlert Severity="@profileMessageSeverity" Variant="Variant.Outlined" Dense="true" Class="profile-popup-message">
+                        @profileMessage
+                    </MudAlert>
+                }
+            </div>
+
+        </div>
+    </div>
+}
+@code {
+    private M.JournalSession? session;
+    private M.JournalUser? currentUser;
+    private bool isFinishRender;
+    private bool _isDarkMode;
+    private bool showProfilePopup;
+    private bool isEditingProfile;
+    private ProfileDraft profileDraft = new();
+    private string? profileMessage;
+    private Severity profileMessageSeverity = Severity.Info;
+
+    protected override async Task OnInitializedAsync()
+    {
+        base.OnInitialized();
+        await JsInterop.EnsureAfterLoginScriptLoadedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            session = await AuthService.GetSessionAsync();
+            isFinishRender = true;
+
+            if (session is null)
+            {
+                NavigationManager.NavigateTo("/login");
+            }
+            else
+            {
+                currentUser = await AuthService.GetCurrentUserAsync();
+                _isDarkMode = IsDarkTheme(currentUser?.ThemePreference ?? session.ThemePreference);
+                var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Split('?', '#')[0];
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    NavigationManager.NavigateTo("/mainPage");
+                }
+            }
+        }
+        catch
+        {
+            await AuthService.LogoutAsync();
+            NavigationManager.NavigateTo("/login");
+        }
+
+        StateHasChanged();
+    }
+
+    private void OpenProfilePopup()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        profileDraft = new ProfileDraft
+        {
+            Id = currentUser?.Id ?? session.Id,
+            FullName = currentUser?.FullName ?? session.FullName,
+            Email = currentUser?.Email ?? session.Email,
+            ProfileImageDataUrl = currentUser?.ProfileImageDataUrl ?? string.Empty,
+            PasswordHint = currentUser?.PasswordHint ?? string.Empty,
+            DateJoined = currentUser?.DateJoined ?? DateTime.UtcNow,
+            ThemePreference = CurrentThemePreference
+            
+        };
+
+        profileMessage = null;
+        isEditingProfile = false;
+        showProfilePopup = true;
+    }
+
+    private void CloseProfilePopup()
+    {
+        showProfilePopup = false;
+        isEditingProfile = false;
+        profileMessage = null;
+    }
+
+    private void CloseEditMode()
+    {
+        isEditingProfile = false;
+        profileMessage = null;
+    }
+
+    private void ToggleEditMode()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        isEditingProfile = true;
+        profileMessage = null;
+    }
+
+    private void CancelEditProfile()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        profileDraft = new ProfileDraft
+        {
+            Id = currentUser?.Id ?? session.Id,
+            FullName = currentUser?.FullName ?? session.FullName,
+            Email = currentUser?.Email ?? session.Email,
+            ProfileImageDataUrl = currentUser?.ProfileImageDataUrl ?? string.Empty,
+            PasswordHint = currentUser?.PasswordHint ?? string.Empty,
+            DateJoined = currentUser?.DateJoined ?? DateTime.UtcNow,
+            ThemePreference = CurrentThemePreference
+        };
+
+        isEditingProfile = false;
+        profileMessage = null;
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        if (string.IsNullOrWhiteSpace(profileDraft.FullName) || string.IsNullOrWhiteSpace(profileDraft.Email))
+        {
+            profileMessage = "User name and email are required.";
+            profileMessageSeverity = Severity.Warning;
+            return;
+        }
+
+        if (!ComFn.IsValidEmail(profileDraft.Email))
+        {
+            profileMessage = "Please enter a valid email address.";
+            profileMessageSeverity = Severity.Warning;
+            return;
+        }
+
+        var loadedUser = await AuthService.GetCurrentUserAsync();
+        if (loadedUser is null)
+        {
+            profileMessage = "Unable to load the current user profile.";
+            profileMessageSeverity = Severity.Error;
+            return;
+        }
+
+        Gva.IsLoading = true;
+
+        loadedUser.FullName = profileDraft.FullName.Trim();
+        loadedUser.Email = profileDraft.Email.Trim();
+        loadedUser.ProfileImageDataUrl = profileDraft.ProfileImageDataUrl;
+        loadedUser.PasswordHint = profileDraft.PasswordHint;
+        loadedUser.ThemePreference = CurrentThemePreference;
+
+        var result = await AuthService.UpdateProfileAsync(loadedUser);
+
+        profileMessageSeverity = result.Success ? Severity.Success : Severity.Error;
+        profileMessage = result.Message;
+
+        if (result.Success && result.Session is not null)
+        {
+            session = result.Session;
+            currentUser = result.User ?? loadedUser;
+            ShowSuccessSnackBar(result.Message);
+            profileDraft = new ProfileDraft
+            {
+                Id = currentUser?.Id ?? session.Id,
+                FullName = currentUser?.FullName ?? session.FullName,
+                Email = currentUser?.Email ?? session.Email,
+                ProfileImageDataUrl = currentUser?.ProfileImageDataUrl ?? string.Empty,
+                PasswordHint = currentUser?.PasswordHint ?? string.Empty,
+                DateJoined = currentUser?.DateJoined ?? DateTime.UtcNow,
+                ThemePreference = CurrentThemePreference
+            };
+            isEditingProfile = false;
+        }
+        Gva.IsLoading = false;
+
+    }
+
+    private async Task HandleProfileImageUploadAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(5 * 1024 * 1024);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        profileDraft.ProfileImageDataUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(memoryStream.ToArray())}";
+        StateHasChanged();
+    }
+
+    private MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#b85042",
+            Secondary = "#6d8b74",
+            Tertiary = "#d9a35f",
+            Background = "#f7f2eb",
+            Surface = "#fffdf9",
+            AppbarBackground = "#fffdf9",
+            DrawerBackground = "#f4ede4",
+            DrawerText = "#594236",
+            DrawerIcon = "#7b5b4d",
+            TextPrimary = "#2f241c",
+            TextSecondary = "#7f6859",
+            ActionDefault = "#8e705f",
+            ActionDisabled = "#c8b6a8",
+            Divider = "rgba(110, 77, 55, 0.14)",
+            GrayLight = "#eadfd3",
+            GrayLighter = "#f8f4ee",
+            Info = "#6f8da1",
+            Success = "#6d8b74",
+            Warning = "#d89d43",
+            Error = "#b85042"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#c96b5a",
+            Secondary = "#7ea386",
+            Tertiary = "#e8b46c",
+            Background = "#1a1613",
+            Surface = "#23201c",
+            AppbarBackground = "#1f1b18",
+            DrawerBackground = "#1d1916",
+            TextPrimary = "#f2e8e0",
+            TextSecondary = "#b9a792",
+            TextDisabled = "#6b5a4c",
+            DrawerText = "#d4c5b8",
+            DrawerIcon = "#b69882",
+            ActionDefault = "#c2a48d",
+            ActionDisabled = "#5e4e42",
+            ActionDisabledBackground = "#2b2621",
+            Divider = "rgba(190, 155, 130, 0.12)",
+            DividerLight = "rgba(190, 155, 130, 0.06)",
+            GrayLight = "#3a332c",
+            GrayLighter = "#2b2621",
+            GrayDefault = "#4a4038",
+            GrayDark = "#1f1b18",
+            Info = "#7f9eb5",
+            Success = "#7ea386",
+            Warning = "#e8b46c",
+            Error = "#e07766",
+            LinesDefault = "rgba(190, 155, 130, 0.2)",
+            LinesInputs = "rgba(190, 155, 130, 0.3)",
+            TableLines = "rgba(190, 155, 130, 0.1)",
+            TableStriped = "rgba(30, 27, 24, 0.5)",
+            TableHover = "rgba(201, 107, 90, 0.08)",
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DrawerWidthLeft = "112px"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = ["DM Sans", "sans-serif"]
+            },
+            H1 = new H1Typography
+            {
+                FontFamily = ["Cormorant Garamond", "serif"],
+                FontWeight = "700"
+            },
+            H2 = new H2Typography
+            {
+                FontFamily = ["Cormorant Garamond", "serif"],
+                FontWeight = "700"
+            },
+            H3 = new H3Typography
+            {
+                FontFamily = ["Cormorant Garamond", "serif"],
+                FontWeight = "700"
+            },
+            H4 = new H4Typography
+            {
+                FontFamily = ["Cormorant Garamond", "serif"],
+                FontWeight = "700"
+            },
+            H5 = new H5Typography
+            {
+                FontFamily = ["Cormorant Garamond", "serif"],
+                FontWeight = "700"
+            },
+            H6 = new H6Typography
+            {
+                FontFamily = ["Cormorant Garamond", "serif"],
+                FontWeight = "700"
+            }
+        }
+    };
+
+    private async Task HandleLogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        NavigationManager.NavigateTo("/login", forceLoad: false);
+    }
+
+    private async Task DarkModeToggleAsync()
+    {
+        Gva.IsLoading = true;
+        _isDarkMode = !_isDarkMode;
+        await PersistThemePreferenceAsync();
+        ShowSuccessSnackBar("Theme Changed Successfully");
+        Gva.IsLoading = false;
+    }
+
+    private async Task PersistThemePreferenceAsync()
+    {
+        if (currentUser is null)
+        {
+            return;
+        }
+
+        currentUser.ThemePreference = CurrentThemePreference;
+        var result = await AuthService.UpdateProfileAsync(currentUser);
+
+        if (result.Success)
+        {
+            currentUser = result.User ?? currentUser;
+            session = result.Session ?? session;
+        }
+    }
+
+    private void NavigateToLandingPage()
+    {
+        NavigationManager.NavigateTo("/welcome");
+    }
+
+    public string DarkLightModeButtonIcon => _isDarkMode switch
+    {
+        true => Icons.Material.Rounded.AutoMode,
+        false => Icons.Material.Outlined.DarkMode,
+    };
+
+    private string ThemeCssClass => _isDarkMode ? "app-theme-dark" : "app-theme-light";
+    private string CurrentThemePreference => _isDarkMode ? "dark" : "light";
+
+    private string CurrentProfileName => string.IsNullOrWhiteSpace(profileDraft.FullName) ? session?.FullName ?? "User" : profileDraft.FullName;
+    private string CurrentProfileEmail => string.IsNullOrWhiteSpace(profileDraft.Email) ? currentUser?.Email ?? session?.Email ?? string.Empty : profileDraft.Email;
+    private string CurrentProfileImage => profileDraft.ProfileImageDataUrl;
+
+    private string PreviousProfileImage => currentUser?.ProfileImageDataUrl ?? string.Empty;
+
+    private static string GetInitials(string? fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return "DL";
+        }
+
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(parts.Take(2).Select(x => char.ToUpperInvariant(x[0])));
+    }
+
+    private static bool IsDarkTheme(string? themePreference) =>
+        string.Equals(themePreference, "dark", StringComparison.OrdinalIgnoreCase);
+
+    private void ShowSuccessSnackBar(string message)
+    {
+        Snackbar.Clear();
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+        Snackbar.Add(message, Severity.Success);
+    }
+
+    private class ProfileDraft
+    {
+        public Guid Id { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string ProfileImageDataUrl { get; set; } = string.Empty;
+        public string PasswordHint {get;set;} = string.Empty;
+        public DateTime DateJoined { get; set; }
+        public string ThemePreference { get; set; } = "light";
+    }
+}

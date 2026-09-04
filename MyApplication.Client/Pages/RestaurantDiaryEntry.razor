@@ -1,0 +1,563 @@
+@using System.IO
+@inject JournalAuthService AuthService
+@inject RestaurantDiariesClient RestaurantDiariesClient
+@inject RestaurantsClient RestaurantsClient
+@inject RestaurantTagsClient RestaurantTagsClient
+@inject RestaurantTypesClient RestaurantTypesClient
+@inject NavigationManager NavigationManager
+
+@if (isLoading)
+{
+    <div class="auth-loading">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <p>Opening restaurant diary entry...</p>
+    </div>
+}
+else
+{
+    <div class="diary-dialog-shell diary-dialog-shell-wide">
+        <div class="diary-dialog-header">
+            <div>
+                <span class="dine-card-tag">@(isEditMode ? "Edit Restaurant Diary" : "New Restaurant Diary")</span>
+                <h2>@dialogTitle</h2>
+                <p>Add the restaurant, the feeling, the rating, and all the photos you want to remember.</p>
+            </div>
+
+            <div class="diary-dialog-actions">
+                @if (isEditMode)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   Size="Size.Medium"
+                                   OnClick="DeleteAsync"
+                                   Title="Delete" />
+                }
+
+                <MudIconButton Icon="@Icons.Material.Filled.Save"
+                               Color="Color.Default"
+                               Size="Size.Medium"
+                               OnClick="SaveAsync"
+                               Title="Save" />
+
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               Color="Color.Default"
+                               Size="Size.Medium"
+                               OnClick="CloseAsync"
+                               Title="Close" />
+            </div>
+        </div>
+
+        <div class="diary-dialog-scroll">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="Guid"
+                               @bind-Value="draft.RestaurantId"
+                               @bind-Value:after='() => ClearValidation(nameof(draft.RestaurantId))'
+                               Label="Restaurant"
+                               Variant="Variant.Outlined"
+                               Class="@GetFieldClass(nameof(draft.RestaurantId))"
+                               Error="@HasValidationError(nameof(draft.RestaurantId))"
+                               ErrorText="Restaurant is required.">
+                        @foreach (var restaurant in restaurants)
+                        {
+                            <MudSelectItem T="Guid" Value="@restaurant.Id">@restaurant.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudDatePicker @bind-Date="draft.VisitedDate"
+                                   Label="Visited date"
+                                   Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField Value="@GetRestaurantTypeName(draft.RestaurantId)"
+                                  Label="Restaurant type"
+                                  Variant="Variant.Outlined"
+                                  ReadOnly="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <div class="diary-rating-panel">
+                        <div class="diary-gallery-head">
+                            <div>
+                                <span class="dine-card-tag">Ratings</span>
+                                <h4>Full dining experience</h4>
+                            </div>
+                        </div>
+
+                        <div class="diary-rating-grid">
+                            <div class="diary-rating-card @GetFieldClass(nameof(draft.TasteScore))">
+                                <div class="diary-rating-card-head">
+                                    <strong>Taste</strong>
+                                    <span>@(draft.TasteScore > 0 ? $"{draft.TasteScore}/5" : "Required")</span>
+                                </div>
+                                <MudRating @bind-SelectedValue="draft.TasteScore"
+                                           @bind-SelectedValue:after='() => ClearValidation(nameof(draft.TasteScore))'
+                                           MaxValue="5"
+                                           Size="Size.Medium"
+                                           Color="Color.Warning" />
+                            </div>
+
+                            <div class="diary-rating-card @GetFieldClass(nameof(draft.ServiceScore))">
+                                <div class="diary-rating-card-head">
+                                    <strong>Service</strong>
+                                    <span>@(draft.ServiceScore > 0 ? $"{draft.ServiceScore}/5" : "Required")</span>
+                                </div>
+                                <MudRating @bind-SelectedValue="draft.ServiceScore"
+                                           @bind-SelectedValue:after='() => ClearValidation(nameof(draft.ServiceScore))'
+                                           MaxValue="5"
+                                           Size="Size.Medium"
+                                           Color="Color.Warning" />
+                            </div>
+
+                            <div class="diary-rating-card @GetFieldClass(nameof(draft.CleanlinessScore))">
+                                <div class="diary-rating-card-head">
+                                    <strong>Cleanliness</strong>
+                                    <span>@(draft.CleanlinessScore > 0 ? $"{draft.CleanlinessScore}/5" : "Required")</span>
+                                </div>
+                                <MudRating @bind-SelectedValue="draft.CleanlinessScore"
+                                           @bind-SelectedValue:after='() => ClearValidation(nameof(draft.CleanlinessScore))'
+                                           MaxValue="5"
+                                           Size="Size.Medium"
+                                           Color="Color.Warning" />
+                            </div>
+
+                            <div class="diary-rating-card @GetFieldClass(nameof(draft.AmbienceScore))">
+                                <div class="diary-rating-card-head">
+                                    <strong>Ambience</strong>
+                                    <span>@(draft.AmbienceScore > 0 ? $"{draft.AmbienceScore}/5" : "Required")</span>
+                                </div>
+                                <MudRating @bind-SelectedValue="draft.AmbienceScore"
+                                           @bind-SelectedValue:after='() => ClearValidation(nameof(draft.AmbienceScore))'
+                                           MaxValue="5"
+                                           Size="Size.Medium"
+                                           Color="Color.Warning" />
+                            </div>
+
+                            <div class="diary-rating-card @GetFieldClass(nameof(draft.OverallRating))">
+                                <div class="diary-rating-card-head">
+                                    <strong>Overall rating</strong>
+                                    <span>@(draft.OverallRating > 0 ? $"{draft.OverallRating}/5" : "Required")</span>
+                                </div>
+                                <MudRating @bind-SelectedValue="draft.OverallRating"
+                                           @bind-SelectedValue:after='() => ClearValidation(nameof(draft.OverallRating))'
+                                           MaxValue="5"
+                                           Size="Size.Medium"
+                                           Color="Color.Warning" />
+                            </div>
+                        </div>
+                    </div>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="draft.Description"
+                                  @bind-Value:after='() => ClearValidation(nameof(draft.Description))'
+                                  Label="Description"
+                                  Variant="Variant.Outlined"
+                                  Class="@GetFieldClass(nameof(draft.Description))"
+                                  Error="@HasValidationError(nameof(draft.Description))"
+                                  ErrorText="Description is required."
+                                  Lines="4"
+                                  Placeholder="Describe the dining experience, atmosphere, and standout details." />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="draft.Remark"
+                                  Label="Remark"
+                                  Variant="Variant.Outlined"
+                                  Lines="3"
+                                  Placeholder="A shorter personal note, takeaway, or mood snapshot." />
+                </MudItem>
+            </MudGrid>
+
+            <div class="diary-tag-builder">
+                <div class="diary-gallery-head">
+                    <div>
+                        <span class="dine-card-tag">Tag Expression</span>
+                        <h3>Choose your created tags</h3>
+                    </div>
+                </div>
+
+                @if (availableTags.Count == 0)
+                {
+                    <div class="diary-empty-card diary-empty-card-inline">
+                        <strong>No tags available yet</strong>
+                        <p>Create tags first from the tag page, then reuse them here for restaurant diary entries.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="restaurant-tag-chipset diary-tag-chipset">
+                        @foreach (var tag in availableTags)
+                        {
+                            <button type="button"
+                                    class="restaurant-tag-chip @(draft.TagIds.Contains(tag.Id) ? "restaurant-tag-chip-active" : string.Empty)"
+                                    @onclick="() => ToggleTag(tag.Id)">
+                                #@tag.Name
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="diary-gallery-builder">
+                <div class="diary-gallery-head">
+                    <div>
+                        <span class="dine-card-tag">Memory Gallery</span>
+                    </div>
+
+                    <InputFile OnChange="HandleGalleryUploadAsync" accept="image/*" multiple />
+                </div>
+
+                <div class="diary-gallery-preview-grid">
+                    @if (draft.GalleryImages.Count == 0)
+                    {
+                        <div class="diary-empty-card diary-empty-card-inline">
+                            <strong>No photos added yet</strong>
+                            <p>Upload cuisine shots, ambience photos, table details, and memory moments.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var image in draft.GalleryImages)
+                        {
+                            <div class="diary-gallery-preview-card">
+                                <img src="@image" alt="Restaurant diary draft image" />
+                                <button type="button"
+                                        class="diary-gallery-remove"
+                                        @onclick="() => RemoveGalleryImage(image)">
+                                    Remove
+                                </button>
+                            </div> 
+                        }
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <MudAlert Severity="@messageSeverity" Variant="Variant.Outlined" Dense="true">
+                    @message
+                </MudAlert>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid DiaryId { get; set; }
+    [Parameter] public string DiaryName { get; set; } = string.Empty;
+    [Parameter] public Guid? EntryId { get; set; }
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool isLoading = true;
+    private bool isEditMode;
+    private string dialogTitle = "Restaurant Diary";
+    private string? message;
+    private Severity messageSeverity = Severity.Info;
+    private M.JournalSession? session;
+    private readonly HashSet<string> validationErrors = [];
+    private List<M.RestaurantTagItem> availableTags = [];
+    private List<M.RestaurantItem> restaurants = [];
+    private List<M.RestaurantTypeItem> restaurantTypes = [];
+    private RestaurantDiaryDraft draft = RestaurantDiaryDraft.CreateDefault();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        session = await AuthService.GetSessionAsync();
+        if (session is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        dialogTitle = string.IsNullOrWhiteSpace(DiaryName) ? "Restaurant Diary" : DiaryName;
+        restaurants = (await RestaurantsClient.GetRestaurantsAsync(session.Id)).ToList();
+        availableTags = (await RestaurantTagsClient.GetTagsAsync(session.Id)).ToList();
+        restaurantTypes = (await RestaurantTypesClient.GetRestaurantTypesAsync()).ToList();
+        draft.DiaryId = DiaryId;
+
+        if (EntryId is Guid entryId)
+        {
+            var existing = await RestaurantDiariesClient.GetRestaurantDiaryAsync(entryId, session.Id);
+            if (existing is not null)
+            {
+                isEditMode = true;
+                draft = new RestaurantDiaryDraft
+                {
+                    Id = existing.Id,
+                    DiaryId = existing.DiaryId,
+                    RestaurantId = existing.RestaurantId,
+                    OverallRating = existing.OverallRating,
+                    TasteScore = existing.TasteScore,
+                    ServiceScore = existing.ServiceScore,
+                    CleanlinessScore = existing.CleanlinessScore,
+                    AmbienceScore = existing.AmbienceScore,
+                    VisitedDate = existing.VisitedDate,
+                    Description = existing.Description,
+                    Remark = existing.Remark,
+                    TagIds = [.. existing.TagIds],
+                    GalleryImages = existing.GalleryImages.Count > 0
+                        ? [.. existing.GalleryImages]
+                        : GetDisplayImages(existing)
+                };
+            }
+        }
+        else 
+        {
+            if (restaurants is not null && restaurants.Any())
+            {
+                draft.RestaurantId = restaurants.First().Id;
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (!ValidateDraft())
+        {
+            return;
+        }
+
+        Gva.IsLoading = true;
+        var galleryImages = draft.GalleryImages
+            .Where(image => !string.IsNullOrWhiteSpace(image))
+            .ToList();
+
+        var entry = new M.RestaurantDiaryItem
+        {
+            Id = draft.Id == Guid.Empty ? Guid.NewGuid() : draft.Id,
+            DiaryId = DiaryId,
+            RestaurantId = draft.RestaurantId,
+            OverallRating = draft.OverallRating,
+            TasteScore = draft.TasteScore,
+            ServiceScore = draft.ServiceScore,
+            CleanlinessScore = draft.CleanlinessScore,
+            AmbienceScore = draft.AmbienceScore,
+            VisitedDate = draft.VisitedDate,
+            Description = draft.Description.Trim(),
+            Remark = draft.Remark.Trim(),
+            Image = galleryImages.FirstOrDefault() ?? string.Empty,
+            DetailImage = galleryImages.Skip(1).FirstOrDefault() ?? galleryImages.FirstOrDefault() ?? string.Empty,
+            TagIds = [.. draft.TagIds],
+            GalleryImages = galleryImages
+        };
+
+        if (isEditMode)
+        {
+            var updated = await RestaurantDiariesClient.UpdateRestaurantDiaryAsync(entry);
+            ShowSuccessSnackBar("Restaurant Diray Saved Successfully");
+            MudDialog.Close(DialogResult.Ok(updated ?? entry));
+            await Task.Delay(300);
+            Gva.IsLoading = false;
+            return;
+        }
+
+        var created = await RestaurantDiariesClient.AddRestaurantDiaryAsync(entry);
+        ShowSuccessSnackBar("Restaurant Diray Saved Successfully");
+        MudDialog.Close(DialogResult.Ok(created ?? entry));
+        await Task.Delay(300);
+        Gva.IsLoading = false;
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (session is null || draft.Id == Guid.Empty)
+        {
+            return;
+        }
+
+        Gva.IsLoading = true;
+        await RestaurantDiariesClient.DeleteRestaurantDiaryAsync(draft.Id, session.Id);
+        ShowSuccessSnackBar("Restaurant Diray Deleted Successfully");
+        MudDialog.Close(DialogResult.Ok(new DeletedRestaurantDiaryResult { DeletedEntryId = draft.Id }));
+        await Task.Delay(300);
+        Gva.IsLoading = false;
+    }
+
+    private async Task HandleGalleryUploadAsync(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles(20))
+        {
+            var dataUrl = await ToDataUrlAsync(file);
+            if (!string.IsNullOrWhiteSpace(dataUrl))
+            {
+                draft.GalleryImages.Add(dataUrl);
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private void RemoveGalleryImage(string image)
+    {
+        if (string.IsNullOrEmpty(image))
+        {
+            return;
+        }
+        draft.GalleryImages.Remove(image);
+    }
+
+    private void ToggleTag(Guid tagId)
+    {
+        if (draft.TagIds.Contains(tagId))
+        {
+            draft.TagIds.Remove(tagId);
+        }
+        else
+        {
+            draft.TagIds.Add(tagId);
+        }
+    }
+
+    private void CloseAsync() => MudDialog.Cancel();
+
+    private bool ValidateDraft()
+    {
+        validationErrors.Clear();
+
+        if (draft.RestaurantId == Guid.Empty)
+        {
+            validationErrors.Add(nameof(draft.RestaurantId));
+        }
+
+        if (draft.OverallRating <= 0)
+        {
+            validationErrors.Add(nameof(draft.OverallRating));
+        }
+
+        if (draft.TasteScore <= 0)
+        {
+            validationErrors.Add(nameof(draft.TasteScore));
+        }
+
+        if (draft.ServiceScore <= 0)
+        {
+            validationErrors.Add(nameof(draft.ServiceScore));
+        }
+
+        if (draft.CleanlinessScore <= 0)
+        {
+            validationErrors.Add(nameof(draft.CleanlinessScore));
+        }
+
+        if (draft.AmbienceScore <= 0)
+        {
+            validationErrors.Add(nameof(draft.AmbienceScore));
+        }
+
+        if (string.IsNullOrWhiteSpace(draft.Description))
+        {
+            validationErrors.Add(nameof(draft.Description));
+        }
+
+        if (validationErrors.Count == 0)
+        {
+            message = null;
+            return true;
+        }
+
+        message = "Please complete the highlighted fields before saving.";
+        messageSeverity = Severity.Warning;
+        return false;
+    }
+
+    private void ClearValidation(string fieldName)
+    {
+        validationErrors.Remove(fieldName);
+        if (validationErrors.Count == 0 && messageSeverity == Severity.Warning)
+        {
+            message = null;
+        }
+    }
+
+    private bool HasValidationError(string fieldName) => validationErrors.Contains(fieldName);
+
+    private string GetFieldClass(string fieldName) =>
+        HasValidationError(fieldName) ? "diary-field-validation-error" : string.Empty;
+
+    private string GetRestaurantTypeName(Guid restaurantId)
+    {
+        var restaurant = restaurants.FirstOrDefault(item => item.Id == restaurantId);
+        if (restaurant is null)
+        {
+            return "Select a restaurant";
+        }
+
+        return restaurantTypes.FirstOrDefault(item => item.Id == restaurant.RestaurantTypeId)?.Name ?? "Unknown";
+    }
+
+    private static List<string> GetDisplayImages(M.RestaurantDiaryItem entry)
+    {
+        var images = new List<string>();
+        if (entry.GalleryImages.Count > 0)
+        {
+            images.AddRange(entry.GalleryImages.Where(image => !string.IsNullOrWhiteSpace(image)));
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(entry.Image))
+            {
+                images.Add(entry.Image);
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.DetailImage) && entry.DetailImage != entry.Image)
+            {
+                images.Add(entry.DetailImage);
+            }
+        }
+
+        return images;
+    }
+
+    private static async Task<string> ToDataUrlAsync(IBrowserFile? file)
+    {
+        if (file is null || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        await using var stream = file.OpenReadStream(8 * 1024 * 1024);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        return $"data:{file.ContentType};base64,{Convert.ToBase64String(memoryStream.ToArray())}";
+    }
+
+    private sealed class RestaurantDiaryDraft
+    {
+        public Guid Id { get; set; }
+        public Guid DiaryId { get; set; }
+        public Guid RestaurantId { get; set; }
+        public int OverallRating { get; set; }
+        public int TasteScore { get; set; }
+        public int ServiceScore { get; set; }
+        public int CleanlinessScore { get; set; }
+        public int AmbienceScore { get; set; }
+        public DateTime? VisitedDate { get; set; } = DateTime.Today;
+        public string Description { get; set; } = string.Empty;
+        public string Remark { get; set; } = string.Empty;
+        public List<Guid> TagIds { get; set; } = [];
+        public List<string> GalleryImages { get; set; } = [];
+
+        public static RestaurantDiaryDraft CreateDefault(Guid diaryId = default) => new()
+        {
+            DiaryId = diaryId
+        };
+    }
+
+    private void ShowSuccessSnackBar(string snackMessage)
+    {
+        Snackbar.Clear();
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+        Snackbar.Add(snackMessage, Severity.Success);
+    }
+
+    public sealed class DeletedRestaurantDiaryResult
+    {
+        public Guid DeletedEntryId { get; set; }
+    }
+}

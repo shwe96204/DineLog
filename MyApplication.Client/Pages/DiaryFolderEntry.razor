@@ -1,0 +1,232 @@
+@using System.IO
+@inject JournalAuthService AuthService
+@inject DiariesClient DiariesClient
+@inject NavigationManager NavigationManager
+
+@if (isLoading)
+{
+    <div class="auth-loading">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <p>Opening diary folder...</p>
+    </div>
+}
+else
+{
+    <div class="diary-dialog-shell">
+        <div class="diary-dialog-header">
+            <div>
+                <span class="dine-card-tag">@(isEditMode ? "Edit Folder" : "New Folder")</span>
+                <h2>@(isEditMode ? "Update diary details" : "Create a diary folder")</h2>
+            </div>
+
+            <div class="diary-dialog-actions">
+                @if (isEditMode)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   Size="Size.Medium"
+                                   OnClick="DeleteAsync"
+                                   Title="Delete" />
+                }
+
+                <MudIconButton Icon="@Icons.Material.Filled.Save"
+                               Color="Color.Default"
+                               Size="Size.Medium"
+                               OnClick="SaveAsync"
+                               Title="Save" />
+
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               Color="Color.Default"
+                               Size="Size.Medium"
+                               OnClick="CloseAsync"
+                               Title="Close" />
+            </div>
+        </div>
+
+        <MudStack Spacing="2">
+            <MudTextField @bind-Value="draft.DiaryName"
+                          Label="Folder name"
+                          Variant="Variant.Outlined"
+                          Placeholder="e.g. Tokyo flavour trip" />
+
+            <MudTextField @bind-Value="draft.Description"
+                          Label="Description"
+                          Variant="Variant.Outlined"
+                          Lines="4"
+                          Placeholder="What kind of meals or memories belong in this folder?" />
+
+            <div class="diary-color-row">
+                <label for="diary-folder-color-input">Folder color</label>
+                <input id="diary-folder-color-input"
+                       class="diary-color-input"
+                       type="color"
+                       @bind="draft.Color" />
+            </div>
+
+            <div class="diary-cover-uploader">
+                <span>Cover image</span>
+                <InputFile OnChange="HandleDiaryCoverUploadAsync" accept="image/*" />
+                <div class="diary-cover-preview diary-cover-preview-large" style="@($"background:{draft.Color}")">
+                    @if (!string.IsNullOrWhiteSpace(draft.CoverImageDataUrl))
+                    {
+                        <img src="@draft.CoverImageDataUrl" alt="Diary cover preview" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Folder" />
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <MudAlert Severity="@messageSeverity" Variant="Variant.Outlined" Dense="true">
+                    @message
+                </MudAlert>
+            }
+        </MudStack>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? DiaryId { get; set; }
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool isLoading = true;
+    private bool isEditMode;
+    private string? message;
+    private Severity messageSeverity = Severity.Info;
+    private M.JournalSession? session;
+    private DiaryDraft draft = DiaryDraft.CreateDefault();
+    private DateTime existingDateCreated = DateTime.Now;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        session = await AuthService.GetSessionAsync();
+        if (session is null)
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        if (DiaryId is Guid diaryId)
+        {
+            var existing = await DiariesClient.GetDiaryAsync(diaryId, session.Id);
+            if (existing is not null)
+            {
+                isEditMode = true;
+                existingDateCreated = existing.DateCreated;
+                draft = new DiaryDraft
+                {
+                    Id = existing.Id,
+                    DiaryName = existing.DiaryName,
+                    Color = existing.Color,
+                    CoverImageDataUrl = existing.CoverImageDataUrl,
+                    Description = existing.Description
+                };
+            }
+        }
+
+        isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(draft.DiaryName))
+        {
+            message = "Folder name is required.";
+            messageSeverity = Severity.Warning;
+            return;
+        }
+
+        Gva.IsLoading = true;
+
+        var diary = new M.DiaryFolderItem
+        {
+            Id = draft.Id == Guid.Empty ? Guid.NewGuid() : draft.Id,
+            UserId = session.Id,
+            DiaryName = draft.DiaryName.Trim(),
+            Color = string.IsNullOrWhiteSpace(draft.Color) ? "#d19044" : draft.Color,
+            Description = draft.Description.Trim(),
+            CoverImageDataUrl = draft.CoverImageDataUrl,
+            DateCreated = isEditMode ? existingDateCreated : DateTime.Now
+        };
+
+        if (isEditMode)
+        {
+            var updated = await DiariesClient.UpdateDiaryAsync(diary);
+            ShowSuccessSnackBar("Diary Saved Successfully");
+            MudDialog.Close(DialogResult.Ok(updated ?? diary));
+            Gva.IsLoading = false;
+            return;
+        }
+
+        var created = await DiariesClient.AddDiaryAsync(diary);
+        ShowSuccessSnackBar("Diary Saved Successfully.");      
+        MudDialog.Close(DialogResult.Ok(created ?? diary));
+        Gva.IsLoading = false;
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (session is null || draft.Id == Guid.Empty)
+        {
+            return;
+        }
+
+        Gva.IsLoading = true;
+        await DiariesClient.DeleteDiaryAsync(draft.Id, session.Id);
+        ShowSuccessSnackBar("Diary Deleted Successfully.");
+        MudDialog.Close(DialogResult.Ok(new DeletedDiaryResult { DeletedDiaryId = draft.Id }));
+        Gva.IsLoading = false;
+    }
+
+    private async Task HandleDiaryCoverUploadAsync(InputFileChangeEventArgs e)
+    {
+        draft.CoverImageDataUrl = await ToDataUrlAsync(e.File);
+        StateHasChanged();
+    }
+
+    private void CloseAsync() => MudDialog.Cancel();
+
+    private static async Task<string> ToDataUrlAsync(IBrowserFile? file)
+    {
+        if (file is null || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        await using var stream = file.OpenReadStream(8 * 1024 * 1024);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        return $"data:{file.ContentType};base64,{Convert.ToBase64String(memoryStream.ToArray())}";
+    }
+
+    private sealed class DiaryDraft
+    {
+        public Guid Id { get; set; }
+        public string DiaryName { get; set; } = string.Empty;
+        public string Color { get; set; } = "#d19044";
+        public string CoverImageDataUrl { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+
+        public static DiaryDraft CreateDefault() => new();
+    }
+
+    private void ShowSuccessSnackBar(string snackMessage)
+    {
+        Snackbar.Clear();
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+        Snackbar.Add(snackMessage, Severity.Success);
+    }
+
+    public sealed class DeletedDiaryResult
+    {
+        public Guid DeletedDiaryId { get; set; }
+    }
+}
